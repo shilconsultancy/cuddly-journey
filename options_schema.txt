@@ -1,0 +1,118 @@
+Sales: For managing B2B and B2C orders.
+
+Warehouses: For tracking inventory and stock levels.
+
+Procurement: For handling purchase orders.
+
+Shops: For managing your different business locations.
+
+Accounts: For all financial-related tasks.
+
+Users: For managing employee accounts and permissions.
+
+Reports: For generating analytics and business insights.
+
+Marketing: For managing campaigns and promotions.
+
+CRM: For managing customer relationships.
+
+HR: For human resources tasks like payroll and leave.
+
+POS: A point-of-sale interface for in-store transactions.
+
+Projects: For tracking tasks and project progress.
+
+Communication: For internal announcements and team messaging.
+
+Settings: For system-wide configuration.
+
+
+
+
+1. Settings (System Core)
+This is the foundation. It controls how the entire application behaves.
+
+Company Profile: Manage company name, address, logo, currency, and tax information.
+
+User & Role Management:
+
+Users: Create, edit, and disable user accounts.
+
+Roles & Permissions: Define user roles (e.g., 'Shop Manager') and assign granular permissions for what each role can view, create, edit, and delete within each module.
+
+Locations: Add and manage all business locations (warehouses, shops, offices).
+
+System Configuration: Set application defaults, like date formats, notification settings, and integrations.
+
+2. Users
+This module is dedicated to managing the people using the system.
+
+User List: View all users with their roles and assigned locations.
+
+Add/Edit User: The page we've already started designing.
+
+Activity Log: An audit trail to see a log of actions performed by each user.
+
+3. HR (Human Resources)
+This expands on the Users module to manage employment details.
+
+Employee Profiles: Store detailed employee information (contact info, job title, salary, documents).
+
+Leave Management: Allow employees to request time off and managers to approve it.
+
+Attendance Tracking: Log employee check-in and check-out times.
+
+Payroll: (Advanced) Integrate payroll calculations and generate payslips.
+
+4. CRM (Customer Relationship Management)
+This module focuses on managing your customer data.
+
+Customer Database: A central list of all B2B and B2C customers.
+
+Customer Profiles: View a customer's complete history, including contact details, purchase history, and communications.
+
+Lead Management: Track potential customers (leads) through your sales pipeline.
+
+5. Sales
+This is the core of your revenue generation.
+
+Order Management: Create, view, and manage all sales orders (both B2B and B2C).
+
+Quotation Management: Create and send professional quotations to clients.
+
+Invoicing: Generate invoices from sales orders.
+
+Sales Dashboard: A real-time view of sales figures, top-selling products, and sales team performance.
+
+6. Procurement
+This module manages how you purchase goods.
+
+Supplier Management: Maintain a database of all your suppliers and their contact details.
+
+Purchase Orders (POs): Create, send, and track POs sent to suppliers.
+
+Goods Received Notes (GRNs): Record when goods from a PO have been received at a warehouse.
+
+7. Warehouses
+This is for managing your inventory.
+
+Inventory Control: A real-time view of stock levels for all products across all warehouses.
+
+Stock Transfers: Manage the movement of stock from one location (e.g., central warehouse) to another (e.g., a shop).
+
+Stock Adjustments: Manually adjust stock levels for events like damages or stock counts.
+
+Barcode/SKU Management: Assign and track products using unique identifiers.
+
+8. Accounts (Finance)
+This module is the financial heart of the application.
+
+Chart of Accounts: A structured list of all financial accounts.
+
+Journal Entries: Manually record financial transactions.
+
+Accounts Payable (AP): Track bills you need to pay to your suppliers.
+
+Accounts Receivable (AR): Track invoices that your customers need to pay.
+
+Financial Reports: Generate key reports like Profit & Loss, Balance Sheet, and Trial Balance.

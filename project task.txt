@@ -1,0 +1,165 @@
+. Settings (System Core) [✅ Done]
+1.1. Global System Setup:
+
+[✅ Done] Central config.php for database and global settings.
+
+[✅ Done] Global functions.php for reusable code (email, logging).
+
+[✅ Done] Templating system (header.php, footer.php).
+
+1.2. Login & Security:
+
+[✅ Done] Secure login page (index.php).
+
+[✅ Done] Session management and logout functionality.
+
+1.3. Settings Module Dashboard:
+
+[✅ Done] Main dashboard for the Settings module (settings/index.php).
+
+1.4. Company Profile:
+
+[✅ Done] Database table (scs_settings).
+
+[✅ Done] UI to manage company name, address, logo, currency, etc.
+
+1.5. Locations Management:
+
+[✅ Done] Database table (scs_locations) with address, phone, manager.
+
+[✅ Done] Full CRUD (Create, Read, Update, Delete) page for locations.
+
+1.6. Roles & Permissions:
+
+[✅ Done] Database tables for modules and role-based permissions.
+
+[✅ Done] UI to assign module permissions (View, Create, Edit, Delete) to roles.
+
+1.7. System Configuration:
+
+[✅ Done] UI for advanced options (Date Format, Timezone, SMTP, Maintenance Mode).
+
+[✅ Done] UI to enable/disable global error logging.
+
+1.8. Activity Logging:
+
+[✅ Done] Database table (scs_activity_logs).
+
+[✅ Done] Global log_activity() function.
+
+[✅ Done] UI to view all activity logs.
+
+2. Users [✅ Done]
+2.1. User List:
+
+[✅ Done] Main page to view all users (users/index.php).
+
+2.2. Add User:
+
+[✅ Done] Dedicated page for adding new users (users/add-user.php).
+
+[✅ Done] Auto-generation of professional Company ID.
+
+[✅ Done] Profile image upload functionality.
+
+2.3. Edit User:
+
+[✅ Done] Page to update user details, including profile image.
+
+2.4. Enable/Disable User:
+
+[✅ Done] Functionality to change a user's active status.
+
+Phase 2: Core Business Data
+3. Products [▶️ Next]
+3.1. Database Structure:
+
+[▶️ Next] Create the scs_products table (SKU, name, price, etc.).
+
+3.2. Product Management:
+
+[⚪️ To Do] Create the main module dashboard (products/index.php).
+
+[⚪️ To Do] Build a full CRUD interface to add, edit, and view all products.
+
+3.3. Advanced Features:
+
+[⚪️ To Do] Add support for product categories and brands.
+
+4. CRM (Customers & Suppliers) [⚪️ To Do]
+4.1. Database Structure:
+
+[⚪️ To Do] Create scs_customers and scs_suppliers tables.
+
+4.2. Customer Management:
+
+[⚪️ To Do] Build a CRUD interface for the customer database.
+
+4.3. Supplier Management:
+
+[⚪️ To Do] Build a CRUD interface for the supplier database.
+
+Phase 3: Multi-Location Operations
+5. Warehouses & Inventory [⚪️ To Do]
+5.1. Database Structure:
+
+[⚪️ To Do] Create the scs_inventory table to link product_id, location_id, and quantity.
+
+5.2. Inventory Management:
+
+[⚪️ To Do] Create a dashboard to view stock levels, filtered by the user's location.
+
+[⚪️ To Do] Implement logic for stock adjustments (e.g., for damaged goods).
+
+5.3. Stock Transfers:
+
+[⚪️ To Do] Build the interface to request and approve stock transfers between locations.
+
+6. Procurement [⚪️ To Do]
+6.1. Database Structure:
+
+[⚪️ To Do] Create tables for scs_purchase_orders and scs_po_items.
+
+6.2. Purchase Order Management:
+
+[⚪️ To Do] Build the interface to create, send, and track POs for specific locations.
+
+6.3. Goods Receiving:
+
+[⚪️ To Do] Create a "Goods Received Note" (GRN) feature that updates inventory levels when a PO arrives.
+
+7. Sales & POS [⚪️ To Do]
+7.1. Database Structure:
+
+[⚪️ To Do] Create tables for scs_sales_orders, scs_so_items, and scs_invoices.
+
+7.2. POS Interface:
+
+[⚪️ To Do] Design a simple, fast interface for shop staff to create sales for their location.
+
+7.3. Order Management:
+
+[⚪️ To Do] Create a detailed view for managers to see all orders from their location.
+
+7.4. Invoicing:
+
+[⚪️ To Do] Build the logic to generate invoices from sales orders.
+
+Phase 4: Financials, HR & Supporting Modules
+8. Accounts (Finance) [⚪️ To Do]
+8.1. Database & Setup:
+
+[⚪️ To Do] Create tables for Chart of Accounts, transactions, etc.
+
+8.2. Core Features:
+
+[⚪️ To Do] Build interfaces for Accounts Payable (AP) and Accounts Receivable (AR).
+
+9. HR (Human Resources) [⚪️ To Do]
+9.1. Employee Profiles:
+
+[⚪️ To Do] Extend the scs_users table or create a new scs_employees table for HR details.
+
+9.2. Leave & Attendance:
+
+[⚪️ To Do] Build the system for leave requests and attendance tracking.
