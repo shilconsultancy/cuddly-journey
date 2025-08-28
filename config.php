@@ -2,6 +2,7 @@
 // config.php
 
 // --- START SESSION ---
+// CORRECTED: Check if a session is already active before starting a new one.
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -32,18 +33,14 @@ if ($result) {
 
 // --- GLOBAL ERROR REPORTING (CONTROLLED BY DATABASE) ---
 if (!empty($app_config['error_logging_enabled']) && $app_config['error_logging_enabled'] == '1') {
-    // DEVELOPMENT MODE: Show all errors on the screen
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
 } else {
-    // PRODUCTION MODE: Hide errors from users and log them to a file
     ini_set('display_errors', 0);
     ini_set('display_startup_errors', 0);
     error_reporting(E_ALL);
     ini_set('log_errors', 1);
-    // It's a good practice to define a specific error log file
-    // ini_set('error_log', __DIR__ . '/error.log'); 
 }
 
 
@@ -53,6 +50,7 @@ if (!empty($app_config['timezone'])) {
 }
 
 // --- Include Global Functions ---
+// Use __DIR__ to ensure the path is always correct.
 require_once __DIR__ . '/functions.php';
 
 ?>

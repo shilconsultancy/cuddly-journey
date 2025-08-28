@@ -1,8 +1,8 @@
 <?php
 // index.php (Login Page)
 
-// Use the new global config file for database connection and settings.
-require_once 'config.php';
+// Start the session and load config FIRST.
+require_once __DIR__ . '/config.php';
 
 // If the user is already logged in, redirect them to the dashboard.
 if (isset($_SESSION['user_id'])) {
@@ -22,8 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($email) || empty($password)) {
         $message = "Please enter both email and password.";
     } else {
-        // --- Prepare and execute the statement to find the user ---
-        $stmt = $conn->prepare("SELECT id, full_name, password, role_id, profile_image_url FROM scs_users WHERE email = ? AND is_active = 1 LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, full_name, password, role_id, profile_image_url, location_id FROM scs_users WHERE email = ? AND is_active = 1 LIMIT 1");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -31,16 +30,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
 
-            // --- Verify the password ---
             if (password_verify($password, $user['password'])) {
-                // Password is correct, so start a new session.
-                session_regenerate_id(); // Mitigates session fixation attacks.
+                session_regenerate_id();
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_full_name'] = $user['full_name'];
                 $_SESSION['user_role_id'] = $user['role_id'];
                 $_SESSION['user_profile_image'] = $user['profile_image_url'];
+                $_SESSION['location_id'] = $user['location_id'];
 
-                // --- Load all user permissions into the session ---
                 $_SESSION['permissions'] = [];
                 $perm_stmt = $conn->prepare("
                     SELECT m.module_name, rp.can_view, rp.can_create, rp.can_edit, rp.can_delete
@@ -61,15 +58,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $perm_stmt->close();
 
-                // Redirect to the dashboard.
                 header("Location: dashboard.php");
                 exit();
             } else {
-                // Password is not valid.
                 $message = "Invalid email or password.";
             }
         } else {
-            // No user found with that email or user is inactive.
             $message = "Invalid email or password.";
         }
         $stmt->close();
@@ -144,7 +138,6 @@ $conn->close();
             </form>
         </div>
         
-        <!-- NEW: Development Login Info -->
         <div class="mt-4 p-4 bg-yellow-100/80 border border-yellow-200/80 text-yellow-800 text-sm rounded-lg text-center">
             <p><strong class="font-semibold">For Development:</strong></p>
             <p>Email: <span class="font-mono">admin@company.com</span> | Password: <span class="font-mono">admin</span></p>

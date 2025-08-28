@@ -2,25 +2,29 @@
 // templates/header.php
 
 // Include the new global configuration file.
-// This connects to the DB, starts the session, and loads all settings.
+// This is the correct place for this. It's included by every secure page.
 require_once __DIR__ . '/../config.php';
 
 // --- LOGOUT FUNCTIONALITY ---
 if (isset($_GET['logout'])) {
     $_SESSION = array();
     session_destroy();
-    header("location: index.php");
+    header("location: index.php"); // Redirect to login page after logout
     exit;
 }
 
 // --- SECURITY CHECK ---
-if (!isset($_SESSION['user_id'])) {
-    header("Location: index.php");
+// Get the name of the current script
+$current_page = basename($_SERVER['PHP_SELF']);
+
+// If user is not logged in AND they are not already on the login page, redirect them.
+if (!isset($_SESSION['user_id']) && $current_page != 'index.php') {
+    header("Location: /git/cuddly-journey/"); // Adjust this path to your project's root login page if needed
     exit();
 }
 
 // --- MAINTENANCE MODE CHECK ---
-if (isset($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1' && $_SESSION['user_role_id'] != 1) {
+if (isset($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1' && ($_SESSION['user_role_id'] ?? 0) != 1) {
     die('
         <div style="font-family: sans-serif; text-align: center; padding: 50px;">
             <h1>Under Maintenance</h1>
@@ -39,7 +43,6 @@ $user_profile_image = $_SESSION['user_profile_image'] ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- The title will be set on each individual page -->
     <link rel="icon" type="image/png" href="<?php echo htmlspecialchars($app_config['company_favicon_url'] ?? ''); ?>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,7 +84,6 @@ $user_profile_image = $_SESSION['user_profile_image'] ?? '';
 <body class="min-h-screen">
 
     <div class="flex flex-col h-screen">
-        <!-- Header -->
         <header class="glass-header flex justify-between items-center p-4 sticky top-0 z-40">
             <div class="flex items-center">
                 <a href="#" class="text-2xl font-bold text-gray-800 ml-2">
@@ -124,5 +126,4 @@ $user_profile_image = $_SESSION['user_profile_image'] ?? '';
             </div>
         </header>
 
-        <!-- Main content area starts here -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
