@@ -9,20 +9,29 @@ if (!check_permission('Procurement', 'view')) {
 
 $page_title = "Purchase Orders - BizManager";
 
-$po_result = $conn->query("
+// Data scope variables
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
+$user_location_id = $_SESSION['location_id'] ?? null;
+
+$sql = "
     SELECT 
         po.id, po.po_number, po.order_date, po.total_amount, po.status,
         s.supplier_name
     FROM scs_purchase_orders po
     JOIN scs_suppliers s ON po.supplier_id = s.id
-    ORDER BY po.order_date DESC, po.id DESC
-");
+";
+
+if (!$has_global_scope && $user_location_id) {
+    $sql .= " WHERE po.location_id = " . (int)$user_location_id;
+}
+
+$sql .= " ORDER BY po.order_date DESC, po.id DESC";
+$po_result = $conn->query($sql);
 
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">Purchase Orders</h2>

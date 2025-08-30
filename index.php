@@ -22,7 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($email) || empty($password)) {
         $message = "Please enter both email and password.";
     } else {
-        $stmt = $conn->prepare("SELECT id, full_name, password, role_id, profile_image_url, location_id FROM scs_users WHERE email = ? AND is_active = 1 LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, full_name, password, role_id, profile_image_url, location_id, data_scope FROM scs_users WHERE email = ? AND is_active = 1 LIMIT 1");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -37,6 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['user_role_id'] = $user['role_id'];
                 $_SESSION['user_profile_image'] = $user['profile_image_url'];
                 $_SESSION['location_id'] = $user['location_id'];
+                $_SESSION['data_scope'] = $user['data_scope']; // Add data_scope to session
 
                 $_SESSION['permissions'] = [];
                 $perm_stmt = $conn->prepare("

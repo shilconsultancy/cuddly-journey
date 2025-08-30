@@ -39,7 +39,7 @@ $active_session_stmt->close();
 // --- DATA FETCHING for the Interface ---
 // Fetch products with their stock levels at the user's current location
 $products_stmt = $conn->prepare("
-    SELECT p.id, p.product_name, p.selling_price, COALESCE(i.quantity, 0) as stock
+    SELECT p.id, p.product_name, p.sku, p.selling_price, COALESCE(i.quantity, 0) as stock
     FROM scs_products p
     LEFT JOIN scs_inventory i ON p.id = i.product_id AND i.location_id = ?
     ORDER BY p.product_name ASC
@@ -59,13 +59,17 @@ require_once __DIR__ . '/../templates/header.php';
 
 <div class="flex flex-col h-[calc(100vh-100px)]">
     <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 bg-white/50 p-4 rounded-xl shadow-inner">
-             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 overflow-y-auto h-full">
+        <div class="lg:col-span-2 bg-white/50 p-4 rounded-xl shadow-inner flex flex-col">
+            <div class="mb-4">
+                <input type="text" id="product-search" placeholder="Search by product name or SKU..." class="form-input w-full p-3 rounded-lg shadow-sm">
+            </div>
+             <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 overflow-y-auto h-full">
                 <?php foreach ($products as $product): ?>
                     <button
                         class="product-item aspect-square flex flex-col items-center justify-center text-center p-2 rounded-lg shadow-sm transition-transform transform hover:scale-105"
                         data-id="<?php echo $product['id']; ?>"
                         data-name="<?php echo htmlspecialchars($product['product_name']); ?>"
+                        data-sku="<?php echo htmlspecialchars($product['sku']); ?>"
                         data-price="<?php echo $product['selling_price']; ?>"
                         data-stock="<?php echo $product['stock']; ?>"
                         style="background-color: <?php echo ($product['stock'] > 0) ? 'rgba(255, 255, 255, 0.8)' : 'rgba(230, 230, 230, 0.7)'; ?>;"
@@ -76,13 +80,17 @@ require_once __DIR__ . '/../templates/header.php';
                         <span class="text-xs <?php echo ($product['stock'] <= 0) ? 'text-red-500' : 'text-green-600'; ?> mt-1">(Stock: <?php echo $product['stock']; ?>)</span>
                     </button>
                 <?php endforeach; ?>
+                <div id="no-results" class="hidden col-span-full text-center text-gray-500 p-8">No products found.</div>
              </div>
         </div>
 
         <div class="lg:col-span-1 bg-white/60 p-4 rounded-xl flex flex-col">
              <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-800">Current Sale</h2>
-                <a href="close-session.php" class="text-sm bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600">Close Session</a>
+                <div class="flex space-x-2">
+                    <a href="session-history.php" class="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600">History</a>
+                    <a href="close-session.php" class="text-sm bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600">Close Session</a>
+                </div>
             </div>
 
             <div id="cart-items" class="flex-1 overflow-y-auto space-y-2">
@@ -153,6 +161,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelPaymentButton = document.getElementById('cancel-payment');
     const paymentForm = document.getElementById('payment-form');
     const amountTenderedInput = document.getElementById('amount-tendered');
+    const productSearchInput = document.getElementById('product-search');
+    const productGrid = document.getElementById('product-grid');
+    const noResultsDiv = document.getElementById('no-results');
     
     let cart = {};
 
@@ -293,6 +304,23 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('An unexpected error occurred.');
         });
     });
+
+    productSearchInput.addEventListener('keyup', function() {
+        const searchTerm = this.value.toLowerCase();
+        let found = false;
+        productItems.forEach(item => {
+            const productName = item.dataset.name.toLowerCase();
+            const productSku = item.dataset.sku.toLowerCase();
+            if (productName.includes(searchTerm) || productSku.includes(searchTerm)) {
+                item.style.display = 'flex';
+                found = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        noResultsDiv.style.display = found ? 'none' : 'block';
+    });
+
 
     updateCartDisplay();
 });

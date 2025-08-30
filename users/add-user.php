@@ -19,6 +19,7 @@ $full_name = '';
 $email = '';
 $selected_role = '';
 $selected_location = '';
+$selected_data_scope = 'Local'; // Default to Local for security
 
 // --- DATA FETCHING for the page ---
 // Fetch all roles for the dropdown
@@ -33,10 +34,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $confirm_password = $_POST['confirm-password'];
     $role_id = $_POST['role'];
     $location_id = !empty($_POST['location']) ? $_POST['location'] : NULL;
+    $data_scope = $_POST['data_scope']; // New data scope field
 
     // Keep selected values on POST
     $selected_role = $role_id;
     $selected_location = $location_id;
+    $selected_data_scope = $data_scope;
 
     // --- Validation ---
     if (empty($full_name) || empty($email) || empty($password) || empty($role_id)) {
@@ -64,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 if ($_FILES['profile_image']['error'] !== UPLOAD_ERR_OK) {
                     $message = "Upload Error Code: " . $_FILES['profile_image']['error'];
                     $message_type = 'error';
-                } 
+                }
                 elseif (!is_dir($target_dir) || !is_writable($target_dir)) {
                     $message = "Upload directory does not exist or is not writable. Please check permissions.";
                     $message_type = 'error';
@@ -96,8 +99,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 try {
                     // 1. Insert the user
                     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt_user = $conn->prepare("INSERT INTO scs_users (full_name, email, password, role_id, location_id, profile_image_url) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt_user->bind_param("ssssis", $full_name, $email, $hashed_password, $role_id, $location_id, $profile_image_url);
+                    $stmt_user = $conn->prepare("INSERT INTO scs_users (full_name, email, password, role_id, location_id, data_scope, profile_image_url) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt_user->bind_param("sssisss", $full_name, $email, $hashed_password, $role_id, $location_id, $data_scope, $profile_image_url);
                     $stmt_user->execute();
 
                     $new_user_id = $conn->insert_id;
@@ -146,6 +149,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $message_type = 'success';
                     
                     $full_name = $email = $selected_role = $selected_location = '';
+                    $selected_data_scope = 'Local';
+
 
                 } catch (mysqli_sql_exception $exception) {
                     $conn->rollback();
@@ -162,7 +167,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-semibold text-gray-800">Create New User</h2>
     <a href="index.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
@@ -179,7 +183,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php endif; ?>
 
     <form action="add-user.php" method="POST" enctype="multipart/form-data" class="space-y-6">
-        <!-- User Details Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="full-name" class="block text-sm font-medium text-gray-700">Full Name</label>
@@ -213,7 +216,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <div class="border-t border-gray-200/50 pt-6"></div>
 
-        <!-- Role and Location Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="role" class="block text-sm font-medium text-gray-700">Primary Role</label>
@@ -240,8 +242,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </select>
             </div>
         </div>
+        
+        <div>
+            <label for="data_scope" class="block text-sm font-medium text-gray-700">Data Access Scope</label>
+            <select id="data_scope" name="data_scope" class="form-input mt-1 block w-full pl-3 pr-10 py-3 rounded-md" required>
+                <option value="Local" <?php if ($selected_data_scope == 'Local') echo 'selected'; ?>>Local (Can only see data from their assigned location)</option>
+                <option value="Global" <?php if ($selected_data_scope == 'Global') echo 'selected'; ?>>Global (Can see data from all locations)</option>
+            </select>
+        </div>
 
-        <!-- Form Actions -->
+
         <div class="flex justify-end pt-6 border-t border-gray-200/50">
             <button type="button" onclick="window.location.href='index.php'" class="bg-white/80 py-2 px-4 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50/50">
                 Cancel

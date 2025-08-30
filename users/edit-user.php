@@ -42,6 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = trim($_POST['email']);
     $role_id = $_POST['role'];
     $location_id = !empty($_POST['location']) ? $_POST['location'] : NULL;
+    $data_scope = $_POST['data_scope'];
     $password = $_POST['password']; // Optional password change
     $profile_image_url = $user['profile_image_url']; // Keep old image by default
 
@@ -69,8 +70,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     if ($message_type !== 'error') {
         // --- UPDATE user details ---
-        $stmt_update = $conn->prepare("UPDATE scs_users SET full_name = ?, email = ?, role_id = ?, location_id = ?, profile_image_url = ? WHERE id = ?");
-        $stmt_update->bind_param("ssiisi", $full_name, $email, $role_id, $location_id, $profile_image_url, $user_id);
+        $stmt_update = $conn->prepare("UPDATE scs_users SET full_name = ?, email = ?, role_id = ?, location_id = ?, data_scope = ?, profile_image_url = ? WHERE id = ?");
+        $stmt_update->bind_param("ssisssi", $full_name, $email, $role_id, $location_id, $data_scope, $profile_image_url, $user_id);
+
 
         if ($stmt_update->execute()) {
             $message = "User updated successfully!";
@@ -106,7 +108,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-semibold text-gray-800">Edit User: <?php echo htmlspecialchars($user['full_name']); ?></h2>
     <a href="index.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
@@ -123,7 +124,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php endif; ?>
 
     <form action="edit-user.php?id=<?php echo $user_id; ?>" method="POST" enctype="multipart/form-data" class="space-y-6">
-        <!-- User Details Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="full-name" class="block text-sm font-medium text-gray-700">Full Name</label>
@@ -152,7 +152,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <div class="border-t border-gray-200/50 pt-6"></div>
 
-        <!-- Role and Location Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="role" class="block text-sm font-medium text-gray-700">Primary Role</label>
@@ -178,8 +177,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </select>
             </div>
         </div>
+        
+        <div>
+            <label for="data_scope" class="block text-sm font-medium text-gray-700">Data Access Scope</label>
+            <select id="data_scope" name="data_scope" class="form-input mt-1 block w-full pl-3 pr-10 py-3 rounded-md" required>
+                <option value="Local" <?php if ($user['data_scope'] == 'Local') echo 'selected'; ?>>Local (Can only see data from their assigned location)</option>
+                <option value="Global" <?php if ($user['data_scope'] == 'Global') echo 'selected'; ?>>Global (Can see data from all locations)</option>
+            </select>
+        </div>
 
-        <!-- Form Actions -->
         <div class="flex justify-end pt-6 border-t border-gray-200/50">
             <button type="button" onclick="window.location.href='index.php'" class="bg-white/80 py-2 px-4 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50/50">
                 Cancel

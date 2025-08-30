@@ -9,16 +9,32 @@ $status_colors = [
     'Overdue' => 'bg-red-100 text-red-800', 'Void' => 'bg-gray-500 text-white'
 ];
 $statuses = array_keys($status_colors);
+
+// --- FILTERING AND SEARCH LOGIC ---
 $search_term = $_GET['search'] ?? '';
 $filter_status = $_GET['status'] ?? '';
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
+
+// Data scope variables
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
+$user_location_id = $_SESSION['location_id'] ?? null;
+
 $sql = "
     SELECT i.id, i.invoice_number, i.invoice_date, i.due_date, i.status, i.total_amount, i.amount_paid, cust.customer_name
     FROM scs_invoices i
     JOIN scs_customers cust ON i.customer_id = cust.id
+    JOIN scs_sales_orders so ON i.sales_order_id = so.id
 ";
 $where_clauses = []; $params = []; $types = '';
+
+// Apply location-based filtering for users with 'Local' scope
+if (!$has_global_scope && $user_location_id) {
+    $where_clauses[] = "so.location_id = ?";
+    $params[] = $user_location_id;
+    $types .= 'i';
+}
+
 if (!empty($search_term)) { $where_clauses[] = "(i.invoice_number LIKE ? OR cust.customer_name LIKE ?)"; $search_param = "%" . $search_term . "%"; $params[] = $search_param; $params[] = $search_param; $types .= 'ss'; }
 if (!empty($filter_status)) { $where_clauses[] = "i.status = ?"; $params[] = $filter_status; $types .= 's'; }
 if (!empty($start_date)) { $where_clauses[] = "i.invoice_date >= ?"; $params[] = $start_date; $types .= 's'; }

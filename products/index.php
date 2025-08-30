@@ -92,19 +92,27 @@ if (isset($_GET['edit']) && check_permission('Products', 'edit')) {
 
 
 // --- DATA FETCHING for the list (UPDATED QUERY) ---
-$products_result = $conn->query("
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
+$user_location_id = $_SESSION['location_id'] ?? null;
+
+$sql = "
     SELECT 
         p.*,
-        COALESCE(SUM(inv.quantity), 0) AS total_stock
+        (SELECT COALESCE(SUM(inv.quantity), 0) FROM scs_inventory inv WHERE inv.product_id = p.id";
+
+if (!$has_global_scope && $user_location_id) {
+    $sql .= " AND inv.location_id = " . (int)$user_location_id;
+}
+
+$sql .= ") AS total_stock
     FROM 
         scs_products p
-    LEFT JOIN 
-        scs_inventory inv ON p.id = inv.product_id
     GROUP BY
         p.id
     ORDER BY
         p.product_name ASC
-");
+";
+$products_result = $conn->query($sql);
 
 ?>
 

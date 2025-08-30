@@ -26,6 +26,11 @@ $filter_status = $_GET['status'] ?? '';
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 
+// Data scope variables
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
+$user_location_id = $_SESSION['location_id'] ?? null;
+
+
 $sql = "
     SELECT 
         so.id,
@@ -43,6 +48,13 @@ $sql = "
 $where_clauses = [];
 $params = [];
 $types = '';
+
+// Apply location-based filtering for users with 'Local' scope
+if (!$has_global_scope && $user_location_id) {
+    $where_clauses[] = "so.location_id = ?";
+    $params[] = $user_location_id;
+    $types .= 'i';
+}
 
 if (!empty($search_term)) {
     $where_clauses[] = "(so.order_number LIKE ? OR cust.customer_name LIKE ?)";

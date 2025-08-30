@@ -10,8 +10,8 @@ if (!check_permission('Warehouses', 'view')) {
 
 $page_title = "Inventory Management - BizManager";
 
-// Determine if the user is an admin who can see all locations
-$is_admin = ($_SESSION['user_role_id'] == 1 || $_SESSION['user_role_id'] == 2);
+// Determine if the user has global data access
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
 $user_location_id = $_SESSION['location_id'] ?? null;
 
 // --- DATA FETCHING for the list ---
@@ -26,8 +26,8 @@ $inventory_sql = "
     JOIN scs_locations l ON i.location_id = l.id
 ";
 
-if (!$is_admin && $user_location_id) {
-    // If user is not an admin and has a location, filter by their location_id
+if (!$has_global_scope && $user_location_id) {
+    // If user has local scope and a location, filter by their location_id
     $inventory_sql .= " WHERE i.location_id = " . (int)$user_location_id;
 }
 $inventory_sql .= " ORDER BY l.location_name, p.product_name ASC";
@@ -37,14 +37,12 @@ $inventory_result = $conn->query($inventory_sql);
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">Inventory Overview</h2>
         <p class="text-gray-600 mt-1">View current stock levels across all authorized locations.</p>
     </div>
     <div class="mt-4 md:mt-0 flex space-x-2">
-        <!-- Back to Dashboard Button -->
         <a href="../dashboard.php" class="inline-flex items-center px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
