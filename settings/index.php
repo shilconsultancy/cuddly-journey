@@ -10,13 +10,11 @@ $page_title = "Settings - BizManager";
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">System Settings</h2>
         <p class="text-gray-600 mt-1">Manage your company profile, users, and system configurations.</p>
     </div>
-    <!-- Back to Dashboard Button -->
     <a href="../dashboard.php" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -26,10 +24,8 @@ $page_title = "Settings - BizManager";
 </div>
 
 
-<!-- Settings App Grid -->
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
     
-    <!-- Company Profile Card -->
     <a href="company-profile.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-blue-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -40,7 +36,6 @@ $page_title = "Settings - BizManager";
         <p class="text-xs text-gray-500 mt-1">Update your business details.</p>
     </a>
     
-    <!-- User Management Card -->
     <a href="../users/" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-purple-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21v-1a6 6 0 00-5.176-5.97M15 21h6v-1a6 6 0 00-9-5.197"/></svg>
@@ -49,7 +44,6 @@ $page_title = "Settings - BizManager";
         <p class="text-xs text-gray-500 mt-1">Manage employee accounts.</p>
     </a>
 
-    <!-- Roles & Permissions Card -->
     <a href="roles.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-red-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -60,7 +54,6 @@ $page_title = "Settings - BizManager";
         <p class="text-xs text-gray-500 mt-1">Define user access levels.</p>
     </a>
 
-    <!-- Locations Card -->
     <a href="locations.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-green-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -71,8 +64,17 @@ $page_title = "Settings - BizManager";
         <h3 class="text-md font-semibold text-gray-800">Locations</h3>
         <p class="text-xs text-gray-500 mt-1">Manage shops & warehouses.</p>
     </a>
+    
+    <a href="payment-methods.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-yellow-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Payment Methods</h3>
+        <p class="text-xs text-gray-500 mt-1">Configure POS payment options.</p>
+    </a>
 
-    <!-- System Configuration Card -->
     <a href="system-configuration.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-teal-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -83,7 +85,6 @@ $page_title = "Settings - BizManager";
         <p class="text-xs text-gray-500 mt-1">Set application defaults.</p>
     </a>
 
-    <!-- Activity Logs Card -->
     <a href="activity-logs.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-orange-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

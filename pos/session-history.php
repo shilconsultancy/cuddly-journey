@@ -70,21 +70,16 @@ $sessions_result = $conn->query($sql);
                 <tr>
                     <th class="px-4 py-3 w-1/4">Session Details</th>
                     <th class="px-4 py-3 text-right">Total Sales</th>
-                    <th class="px-4 py-3 text-right">Cash Sales</th>
-                    <th class="px-4 py-3 text-right">Other Payments</th>
                     <th class="px-4 py-3 text-right">Opening Balance</th>
                     <th class="px-4 py-3 text-right">Expected in Drawer</th>
                     <th class="px-4 py-3 text-right">Closing Balance</th>
                     <th class="px-4 py-3 text-right">Discrepancy</th>
-                    <?php if ($can_edit_sessions): ?>
-                        <th class="px-4 py-3 text-center">Actions</th>
-                    <?php endif; ?>
+                    <th class="px-4 py-3 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($sessions_result->num_rows > 0): ?>
                     <?php while($session = $sessions_result->fetch_assoc()): 
-                        $other_sales = $session['total_sales'] - $session['cash_sales'];
                         $discrepancy = $session['closing_balance'] - $session['expected_balance'];
                     ?>
                     <tr class="bg-white/50 border-b border-gray-200/50" id="session-row-<?php echo $session['id']; ?>">
@@ -97,8 +92,6 @@ $sessions_result = $conn->query($sql);
                             </div>
                         </td>
                         <td class="px-4 py-4 text-right align-top font-semibold"><?php echo number_format($session['total_sales'], 2); ?></td>
-                        <td class="px-4 py-4 text-right align-top" data-cash-sales="<?php echo $session['cash_sales']; ?>"><?php echo number_format($session['cash_sales'], 2); ?></td>
-                        <td class="px-4 py-4 text-right align-top"><?php echo number_format($other_sales, 2); ?></td>
                         <td class="px-4 py-4 text-right align-top">
                             <input type="number" step="0.01" value="<?php echo number_format($session['opening_balance'], 2, '.', ''); ?>" 
                                    class="form-input w-28 p-1 rounded-md text-right bg-gray-50/50 border-gray-300/50"
@@ -106,7 +99,7 @@ $sessions_result = $conn->query($sql);
                                    id="opening-<?php echo $session['id']; ?>"
                                    <?php if (!$can_edit_sessions || $session['status'] !== 'Closed') echo 'disabled'; ?>>
                         </td>
-                        <td class="px-4 py-4 text-right align-top font-semibold" id="expected-<?php echo $session['id']; ?>">
+                        <td class="px-4 py-4 text-right align-top font-semibold" id="expected-<?php echo $session['id']; ?>" data-cash-sales="<?php echo $session['cash_sales']; ?>">
                             <?php echo number_format($session['expected_balance'], 2); ?>
                         </td>
                         <td class="px-4 py-4 text-right align-top">
@@ -119,7 +112,10 @@ $sessions_result = $conn->query($sql);
                         <td class="px-4 py-4 text-right align-top font-bold <?php echo (abs($discrepancy) > 0.001) ? 'text-red-500' : 'text-green-600'; ?>" id="discrepancy-<?php echo $session['id']; ?>">
                             <?php echo number_format($discrepancy, 2); ?>
                         </td>
-                        <td class="px-4 py-4 text-center align-top">
+                        <td class="px-4 py-4 text-center align-top space-y-2">
+                            <a href="session-details.php?id=<?php echo $session['id']; ?>" class="block bg-blue-500 text-white px-3 py-1 text-xs font-semibold rounded-lg hover:bg-blue-600">
+                                Details
+                            </a>
                             <?php if ($can_edit_sessions && $session['status'] === 'Closed'): ?>
                                 <button onclick="saveSession(<?php echo $session['id']; ?>)" class="bg-indigo-600 text-white px-3 py-1 text-xs font-semibold rounded-lg hover:bg-indigo-700">
                                     Save
@@ -130,7 +126,7 @@ $sessions_result = $conn->query($sql);
                     <?php endwhile; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="<?php echo $can_edit_sessions ? '9' : '8'; ?>" class="px-6 py-4 text-center text-gray-500">No session history found.</td>
+                        <td colspan="<?php echo $can_edit_sessions ? '8' : '7'; ?>" class="px-6 py-4 text-center text-gray-500">No session history found.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -144,10 +140,8 @@ function calculateTotals(sessionId) {
     const closingEl = document.getElementById(`closing-${sessionId}`);
     const expectedEl = document.getElementById(`expected-${sessionId}`);
     const discrepancyEl = document.getElementById(`discrepancy-${sessionId}`);
-    const row = document.getElementById(`session-row-${sessionId}`);
-    const cashSalesCell = row.querySelector('td[data-cash-sales]');
     
-    const cashSales = parseFloat(cashSalesCell.dataset.cashSales) || 0;
+    const cashSales = parseFloat(expectedEl.dataset.cashSales) || 0;
     const opening = parseFloat(openingEl.value) || 0;
     const closing = parseFloat(closingEl.value) || 0;
 
