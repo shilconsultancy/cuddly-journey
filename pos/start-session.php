@@ -18,8 +18,8 @@ $active_session_stmt->bind_param("i", $user_id);
 $active_session_stmt->execute();
 $active_session_result = $active_session_stmt->get_result();
 if ($active_session_result->num_rows > 0) {
-    // This redirect will now work because it's before any HTML output
-    header("Location: index.php"); 
+    // If a session is active, redirect to the sales page, not the start page.
+    header("Location: sale.php"); 
     exit();
 }
 $active_session_stmt->close();
@@ -40,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $new_session_id = $conn->insert_id;
             $_SESSION['pos_session_id'] = $new_session_id;
             log_activity('POS_SESSION_START', "User started new POS session #" . $new_session_id, $conn);
-            // This redirect will also work now
-            header("Location: index.php");
+            // *** THIS IS THE FIX: Redirect to sale.php instead of index.php ***
+            header("Location: sale.php");
             exit();
         } else {
             $message = "Failed to start a new session. Please try again.";

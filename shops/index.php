@@ -118,7 +118,7 @@ if ($show_global_view) {
     </div>
     
     <div class="glass-card p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div id="date-filter-container" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <input type="hidden" id="location_id_input" value="<?php echo $display_location_id; ?>">
             <div>
                  <label for="start_date" class="block text-sm font-medium text-gray-700">From</label>
@@ -183,7 +183,7 @@ if ($show_global_view) {
             const startDate = startDateInput.value;
             const endDate = endDateInput.value;
             
-            // Update URL for persistence
+            // Update URL for persistence without reloading
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('location_id', locationId);
             newUrl.searchParams.set('start_date', startDate);
@@ -267,28 +267,27 @@ if ($show_global_view) {
             button.addEventListener('click', function() {
                 const range = this.dataset.range;
                 const today = new Date();
-                let startDate, endDate;
+                let startDate = new Date(today);
+                let endDate = new Date(today);
+
                 if (range === 'today') {
-                    startDate = endDate = today.toISOString().split('T')[0];
+                    // No change needed, start and end are today
                 } else if (range === 'week') {
-                    // Start of the week (Sunday)
-                    const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-                    startDate = firstDayOfWeek.toISOString().split('T')[0];
-                    endDate = new Date().toISOString().split('T')[0];
+                    // Start of the week (Monday)
+                    const day = today.getDay();
+                    const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+                    startDate = new Date(today.setDate(diff));
                 } else if (range === 'month') {
-                    startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-                    endDate = new Date().toISOString().split('T')[0];
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 }
-                startDateInput.value = startDate;
-                endDateInput.value = endDate;
+
+                startDateInput.value = startDate.toISOString().split('T')[0];
+                endDateInput.value = endDate.toISOString().split('T')[0];
                 fetchAllData();
             });
         });
 
-        filterButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            fetchAllData();
-        });
+        filterButton.addEventListener('click', fetchAllData);
 
         // Initial data load
         fetchAllData();
