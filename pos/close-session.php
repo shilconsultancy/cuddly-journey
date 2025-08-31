@@ -105,8 +105,8 @@ require_once __DIR__ . '/../templates/header.php';
                 End Session
             </button>
         </form>
-         <a href="index.php" class="mt-4 inline-block text-sm text-gray-600 hover:text-indigo-600 text-center w-full">
-            &larr; Back to POS
+         <a href="../dashboard.php" class="mt-4 inline-block text-sm text-gray-600 hover:text-indigo-600 text-center w-full">
+            &larr; Back to Dashboard
         </a>
     </div>
 </div>

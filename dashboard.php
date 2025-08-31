@@ -9,16 +9,13 @@ require_once 'templates/header.php';
 $page_title = "Dashboard - " . ($app_config['company_name'] ?? 'BizManager');
 ?>
 
-<!-- This title tag will be placed within the <head> of the document by the header template. -->
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Welcome section -->
 <div class="glass-card p-6 mb-6">
     <h2 class="text-xl font-semibold text-gray-800 mb-1">Welcome back, <?php echo htmlspecialchars(explode(' ', $user_full_name)[0]); ?></h2>
     <p class="text-gray-600">Here are your business applications</p>
 </div>
 
-<!-- App Grid -->
 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-6">
     
     <?php // --- PERMISSION CHECK for Sales ---
