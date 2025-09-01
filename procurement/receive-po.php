@@ -22,7 +22,7 @@ $message_type = '';
 // STEP 2: Perform ALL form processing and potential redirects BEFORE any HTML is sent.
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
     // We need to fetch the PO details again inside the POST block to process it.
-    $stmt_po_check = $conn->prepare("SELECT location_id, po_number FROM scs_purchase_orders WHERE id = ?");
+    $stmt_po_check = $conn->prepare("SELECT * FROM scs_purchase_orders WHERE id = ?");
     $stmt_po_check->bind_param("i", $po_id);
     $stmt_po_check->execute();
     $po_for_processing = $stmt_po_check->get_result()->fetch_assoc();
@@ -39,6 +39,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
         try {
             $created_by = $_SESSION['user_id'];
             
+            // Task 1: Update Inventory
             $stmt_inventory_update = $conn->prepare("
                 INSERT INTO scs_inventory (product_id, location_id, quantity, last_updated_by) VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE quantity = quantity + ?, last_updated_by = ?
@@ -54,7 +55,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
                 }
             }
             
-            // Update PO status to 'Completed'
+            // Task 2: Auto-create the Supplier Bill
+            $bill_number = 'BILL-' . $po_for_processing['po_number'];
+            $bill_date = date('Y-m-d');
+            $due_date = date('Y-m-d', strtotime('+30 days')); // Default 30-day payment term
+            $stmt_bill = $conn->prepare("INSERT INTO scs_supplier_bills (supplier_id, po_id, bill_number, bill_date, due_date, total_amount, status, created_by) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?)");
+            $stmt_bill->bind_param("iisssdi", $po_for_processing['supplier_id'], $po_id, $bill_number, $bill_date, $due_date, $po_for_processing['total_amount'], $created_by);
+            $stmt_bill->execute();
+            $bill_id = $conn->insert_id;
+
+            // Task 3: Auto-create the Journal Entry for this bill
+            // This entry increases what you owe (AP) and increases what you own (Inventory)
+            $je_description = "Goods received against PO #" . $po_for_processing['po_number'];
+            $debits = [
+                ['account_id' => 4, 'amount' => $po_for_processing['total_amount']] // Debit Inventory Asset
+            ];
+            $credits = [
+                ['account_id' => 7, 'amount' => $po_for_processing['total_amount']] // Credit Accounts Payable
+            ];
+            create_journal_entry($conn, $bill_date, $je_description, $debits, $credits, 'Supplier Bill', $bill_id);
+
+            // Task 4: Update PO status to 'Completed'
             $stmt_po_status = $conn->prepare("UPDATE scs_purchase_orders SET status = 'Completed' WHERE id = ?");
             $stmt_po_status->bind_param("i", $po_id);
             $stmt_po_status->execute();
@@ -111,7 +132,6 @@ $items_stmt->close();
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex justify-between items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">Receive Stock Against PO #<?php echo htmlspecialchars($po['po_number']); ?></h2>
@@ -162,7 +182,7 @@ $items_stmt->close();
         </div>
 
         <div class="flex justify-end pt-6 mt-6 border-t border-gray-200/50">
-            <button type="submit" name="receive_stock" class="w-full md:w-auto inline-flex justify-center py-3 px-6 rounded-md text-white bg-green-600 hover:bg-green-700" onclick="return confirm('Are you sure you want to receive these quantities? This will update your inventory and complete the PO.');">
+            <button type="submit" name="receive_stock" class="w-full md:w-auto inline-flex justify-center py-3 px-6 rounded-md text-white bg-green-600 hover:bg-green-700" onclick="return confirm('Are you sure you want to receive these quantities? This will update your inventory, create a supplier bill, and complete the PO.');">
                 Confirm & Receive Stock
             </button>
         </div>

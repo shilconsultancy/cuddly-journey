@@ -1,34 +1,71 @@
 <?php
-// coming-soon.php
+// accounts/index.php
 
-// Include the global header. This starts the session and checks for a valid login.
-require_once '../templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 
-// Set the title for this specific page.
-$page_title = "Feature Coming Soon - BizManager";
+if (!check_permission('Accounts', 'view')) {
+    die('<div class="glass-card p-8 text-center">You do not have permission to access this page.</div>');
+}
+
+$page_title = "Accounts Dashboard - BizManager";
 ?>
 
-<!-- This title tag will be placed within the <head> of the document by the header template. -->
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<div class="flex flex-col items-center justify-center h-full">
-    <div class="glass-card p-8 md:p-12 text-center">
-        <div class="mx-auto mb-6 p-4 bg-indigo-100/50 rounded-full w-24 h-24 flex items-center justify-center backdrop-blur-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-semibold text-gray-800">Accounts Module</h2>
+        <p class="text-gray-600 mt-1">Manage your chart of accounts, journal entries, and view financial reports.</p>
+    </div>
+    <a href="../dashboard.php" class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
+        &larr; Back to Dashboard
+    </a>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+    <a href="chart_of_accounts.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-blue-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.002 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.002 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
             </svg>
         </div>
-        <h2 class="text-3xl font-bold text-gray-800 mb-2">Coming Soon!</h2>
-        <p class="text-gray-600 max-w-sm mb-8">
-            This feature is currently under construction. We're working hard to bring it to you as soon as possible.
-        </p>
-        <a href="../dashboard.php" class="inline-block px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
-            &larr; Back to Dashboard
-        </a>
-    </div>
+        <h3 class="text-md font-semibold text-gray-800">Chart of Accounts</h3>
+        <p class="text-xs text-gray-500 mt-1">Manage all financial accounts.</p>
+    </a>
+    
+    <a href="journal_entries.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-green-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Journal Entries</h3>
+        <p class="text-xs text-gray-500 mt-1">Record manual transactions.</p>
+    </a>
+
+    <a href="accounts_receivable.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-yellow-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Accounts Receivable</h3>
+        <p class="text-xs text-gray-500 mt-1">Track customer invoices and payments.</p>
+    </a>
+
+    <a href="accounts_payable.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-red-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zM9 14l6-6" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Accounts Payable</h3>
+        <p class="text-xs text-gray-500 mt-1">Track supplier bills and payments.</p>
+    </a>
+    
 </div>
 
 <?php
-// Include the global footer.
-require_once 'templates/footer.php';
+require_once __DIR__ . '/../templates/footer.php';
 ?>

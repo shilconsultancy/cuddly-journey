@@ -81,3 +81,59 @@ function get_company_details($conn) {
     }
     return $settings;
 }
+
+/**
+ * Creates a balanced two-sided journal entry.
+ *
+ * @param mysqli $conn The database connection object.
+ * @param string $date The date of the entry (Y-m-d).
+ * @param string $description A brief description of the transaction.
+ * @param array $debits An array of debit entries, each ['account_id' => id, 'amount' => amount].
+ * @param array $credits An array of credit entries, each ['account_id' => id, 'amount' => amount].
+ * @param string|null $source_document The name of the source module (e.g., 'Invoice', 'Payment').
+ * @param int|null $source_document_id The ID of the source document (e.g., invoice_id).
+ * @return bool True on success, false on failure.
+ * @throws Exception If debits do not equal credits.
+ */
+function create_journal_entry($conn, $date, $description, $debits, $credits, $source_document = null, $source_document_id = null) {
+    $total_debits = array_sum(array_column($debits, 'amount'));
+    $total_credits = array_sum(array_column($credits, 'amount'));
+
+    // Use a small tolerance for floating point comparison
+    if (abs($total_debits - $total_credits) > 0.001) {
+        throw new Exception("Journal entry is unbalanced. Debits ($total_debits) do not equal Credits ($total_credits).");
+    }
+
+    $created_by = $_SESSION['user_id'];
+
+    // Insert into main journal entry table
+    $stmt_journal = $conn->prepare("INSERT INTO scs_journal_entries (entry_date, description, source_document, source_document_id, created_by) VALUES (?, ?, ?, ?, ?)");
+    $stmt_journal->bind_param("sssii", $date, $description, $source_document, $source_document_id, $created_by);
+    if (!$stmt_journal->execute()) {
+        throw new Exception("Failed to create journal entry header: " . $stmt_journal->error);
+    }
+    $journal_entry_id = $conn->insert_id;
+    $stmt_journal->close();
+
+    // Insert debit items
+    $stmt_items = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, debit_amount) VALUES (?, ?, ?)");
+    foreach ($debits as $debit) {
+        $stmt_items->bind_param("iid", $journal_entry_id, $debit['account_id'], $debit['amount']);
+        if (!$stmt_items->execute()) {
+            throw new Exception("Failed to insert debit item: " . $stmt_items->error);
+        }
+    }
+    $stmt_items->close();
+
+    // Insert credit items
+    $stmt_items = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, credit_amount) VALUES (?, ?, ?)");
+    foreach ($credits as $credit) {
+        $stmt_items->bind_param("iid", $journal_entry_id, $credit['account_id'], $credit['amount']);
+        if (!$stmt_items->execute()) {
+            throw new Exception("Failed to insert credit item: " . $stmt_items->error);
+        }
+    }
+    $stmt_items->close();
+
+    return true;
+}

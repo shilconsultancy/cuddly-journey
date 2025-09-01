@@ -24,7 +24,6 @@ try {
     $check_stmt->close();
 
     if ($existing_invoice) {
-        // FIX: Redirect to the correct invoice details page
         header('Location: invoice-details.php?id=' . $existing_invoice['id'] . '&notice=invoice_exists');
         exit();
     }
@@ -40,44 +39,61 @@ try {
         throw new Exception("Sales order not found.");
     }
 
-    $items_stmt = $conn->prepare("SELECT * FROM scs_sales_order_items WHERE sales_order_id = ?");
+    $items_stmt = $conn->prepare("
+        SELECT soi.*, p.cost_price 
+        FROM scs_sales_order_items soi
+        JOIN scs_products p ON soi.product_id = p.id
+        WHERE soi.sales_order_id = ?
+    ");
     $items_stmt->bind_param("i", $order_id);
     $items_stmt->execute();
     $items_result = $items_stmt->get_result();
     
     // Step 3: Create the main invoice record
     $invoice_date = date('Y-m-d');
-    $due_date = date('Y-m-d', strtotime('+30 days')); // Default 30-day due date
+    $due_date = date('Y-m-d', strtotime('+30 days'));
     $created_by = $_SESSION['user_id'];
     $placeholder_invoice_number = "TEMP-" . time();
 
     $stmt_invoice = $conn->prepare("
         INSERT INTO scs_invoices 
         (invoice_number, sales_order_id, customer_id, invoice_date, due_date, total_amount, status, created_by) 
-        VALUES (?, ?, ?, ?, ?, ?, 'Draft', ?)
+        VALUES (?, ?, ?, ?, ?, ?, 'Sent', ?)
     ");
     $stmt_invoice->bind_param("siissdi", $placeholder_invoice_number, $order_id, $order['customer_id'], $invoice_date, $due_date, $order['total_amount'], $created_by);
     $stmt_invoice->execute();
     $new_invoice_id = $conn->insert_id;
     $stmt_invoice->close();
 
-    // Generate and update the real invoice number
     $invoice_number = 'INV-' . date('Y') . '-' . str_pad($new_invoice_id, 5, '0', STR_PAD_LEFT);
     $conn->query("UPDATE scs_invoices SET invoice_number = '$invoice_number' WHERE id = $new_invoice_id");
 
-    // Step 4: Copy the line items from the sales order to the invoice
+    // Step 4: Copy items and calculate total cost of goods sold (COGS)
     $stmt_items = $conn->prepare("INSERT INTO scs_invoice_items (invoice_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
+    $total_cogs = 0;
     while ($item = $items_result->fetch_assoc()) {
         $stmt_items->bind_param("iiidd", $new_invoice_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']);
         $stmt_items->execute();
+        $total_cogs += $item['quantity'] * $item['cost_price'];
     }
     $stmt_items->close();
 
-    // If everything succeeded, commit the transaction
+    // Step 5: Create the journal entry for the sale
+    $je_description = "Sale on credit - Invoice " . $invoice_number;
+    $debits = [
+        ['account_id' => 3, 'amount' => $order['total_amount']], // Debit Accounts Receivable
+        ['account_id' => 5, 'amount' => $total_cogs]             // Debit Cost of Goods Sold
+    ];
+    $credits = [
+        ['account_id' => 4, 'amount' => $order['total_amount']], // Credit Sales Revenue
+        ['account_id' => 3, 'amount' => $total_cogs]             // Credit Inventory Asset
+    ];
+    create_journal_entry($conn, $invoice_date, $je_description, $debits, $credits, 'Invoice', $new_invoice_id);
+
+
     $conn->commit();
     log_activity('INVOICE_GENERATED', "Generated invoice {$invoice_number} from Sales Order {$order['order_number']}", $conn);
     
-    // FIX: Redirect to the correct invoice details page
     header('Location: invoice-details.php?id=' . $new_invoice_id . '&success=generated');
     exit();
 

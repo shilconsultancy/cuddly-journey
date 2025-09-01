@@ -12,7 +12,6 @@ $page_title = "Procurement - BizManager";
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">Procurement Module</h2>
@@ -23,7 +22,6 @@ $page_title = "Procurement - BizManager";
     </a>
 </div>
 
-<!-- Procurement Options Grid -->
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
     
     <a href="suppliers.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
@@ -44,6 +42,16 @@ $page_title = "Procurement - BizManager";
         </div>
         <h3 class="text-md font-semibold text-gray-800">Purchase Orders</h3>
         <p class="text-xs text-gray-500 mt-1">Create and track orders.</p>
+    </a>
+
+    <a href="bills.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-red-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Supplier Bills</h3>
+        <p class="text-xs text-gray-500 mt-1">Record and manage bills to be paid.</p>
     </a>
     
 </div>

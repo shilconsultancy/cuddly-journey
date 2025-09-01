@@ -50,6 +50,8 @@ try {
     // 3. Create Sales Order Items & Update Inventory
     $stmt_so_item = $conn->prepare("INSERT INTO scs_sales_order_items (sales_order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
     $stmt_inv_update = $conn->prepare("UPDATE scs_inventory SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?");
+    $total_cost = 0;
+    $prod_cost_stmt = $conn->prepare("SELECT cost_price FROM scs_products WHERE id = ?");
 
     foreach ($cart as $product_id => $item) {
         $line_total = $item['quantity'] * $item['price'];
@@ -58,7 +60,14 @@ try {
         
         $stmt_inv_update->bind_param("iii", $item['quantity'], $product_id, $location_id);
         $stmt_inv_update->execute();
+        
+        // Calculate total cost of goods sold
+        $prod_cost_stmt->bind_param("i", $product_id);
+        $prod_cost_stmt->execute();
+        $cost_price = $prod_cost_stmt->get_result()->fetch_assoc()['cost_price'] ?? 0;
+        $total_cost += $item['quantity'] * $cost_price;
     }
+    $prod_cost_stmt->close();
 
     // 4. Create Invoice
     $placeholder_inv = "TEMP-INV-" . time();
@@ -88,8 +97,19 @@ try {
     $stmt_pos_sale->bind_param("iiiisdd", $session_id, $sales_order_id, $invoice_id, $customer_id, $payment_method, $amount_tendered, $change_given);
     $stmt_pos_sale->execute();
     
+    // 8. Create Journal Entry for the cash sale
+    $je_description = "POS Sale - Invoice " . $invoice_number;
+    $debits = [
+        ['account_id' => 1, 'amount' => $total_amount], // Debit Cash on Hand
+        ['account_id' => 5, 'amount' => $total_cost]      // Debit Cost of Goods Sold
+    ];
+    $credits = [
+        ['account_id' => 4, 'amount' => $total_amount], // Credit Sales Revenue
+        ['account_id' => 3, 'amount' => $total_cost]      // Credit Inventory Asset
+    ];
+    create_journal_entry($conn, date('Y-m-d'), $je_description, $debits, $credits, 'POS Sale', $invoice_id);
+
     $conn->commit();
-    // UPDATED: Return the new invoice_id so we can print the receipt
     echo json_encode(['success' => true, 'message' => 'Sale processed successfully.', 'invoice_id' => $invoice_id]);
 
 } catch (Exception $e) {
