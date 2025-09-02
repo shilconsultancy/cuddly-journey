@@ -29,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $items = $_POST['items'];
 
         // Update the main entry
-        $stmt_update = $conn->prepare("UPDATE scs_journal_entries SET entry_date = ?, description = ?, reference_number = ? WHERE id = ? AND source_document IS NULL");
+        $stmt_update = $conn->prepare("UPDATE scs_journal_entries SET entry_date = ?, description = ?, reference_number = ? WHERE id = ? AND source_document = 'Manual Entry'");
         $stmt_update->bind_param("sssi", $entry_date, $description, $reference_number, $entry_id_post);
         $stmt_update->execute();
 
@@ -86,7 +86,7 @@ $entry_stmt->close();
 if (!$entry) {
     die("Journal entry not found.");
 }
-if ($entry['source_document']) {
+if ($entry['source_document'] && $entry['source_document'] !== 'Manual Entry') {
     die('<div class="glass-card p-8 text-center">This journal entry was automatically generated and cannot be manually edited.</div>');
 }
 

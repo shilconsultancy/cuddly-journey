@@ -25,19 +25,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $total_debit = 0;
         $total_credit = 0;
 
-        for ($i = 0; $i < count($items['account_id']); $i++) {
-            $account_id = $items['account_id'][$i];
-            $debit = !empty($items['debit'][$i]) ? (float)$items['debit'][$i] : 0;
-            $credit = !empty($items['credit'][$i]) ? (float)$items['credit'][$i] : 0;
+        if (isset($items['account_id'])) {
+            for ($i = 0; $i < count($items['account_id']); $i++) {
+                $account_id = $items['account_id'][$i];
+                $debit = !empty($items['debit'][$i]) ? (float)$items['debit'][$i] : 0;
+                $credit = !empty($items['credit'][$i]) ? (float)$items['credit'][$i] : 0;
 
-            if ($account_id && ($debit > 0 || $credit > 0)) {
-                if ($debit > 0) {
-                    $debits[] = ['account_id' => $account_id, 'amount' => $debit];
-                    $total_debit += $debit;
-                }
-                if ($credit > 0) {
-                    $credits[] = ['account_id' => $account_id, 'amount' => $credit];
-                    $total_credit += $credit;
+                if ($account_id && ($debit > 0 || $credit > 0)) {
+                    if ($debit > 0) {
+                        $debits[] = ['account_id' => $account_id, 'amount' => $debit];
+                        $total_debit += $debit;
+                    }
+                    if ($credit > 0) {
+                        $credits[] = ['account_id' => $account_id, 'amount' => $credit];
+                        $total_credit += $credit;
+                    }
                 }
             }
         }
@@ -50,28 +52,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             throw new Exception("Cannot create an empty journal entry.");
         }
 
-        // --- Create Journal Entry Header ---
-        $created_by = $_SESSION['user_id'];
-        $stmt_journal = $conn->prepare("INSERT INTO scs_journal_entries (entry_date, description, reference_number, source_document, created_by) VALUES (?, ?, ?, 'Manual Entry', ?)");
-        $stmt_journal->bind_param("sssi", $entry_date, $description, $reference_number, $created_by);
-        $stmt_journal->execute();
-        $journal_entry_id = $conn->insert_id;
-        $stmt_journal->close();
-
-        // --- Create Journal Entry Items ---
-        $stmt_items_debit = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, debit_amount) VALUES (?, ?, ?)");
-        foreach ($debits as $debit) {
-            $stmt_items_debit->bind_param("iid", $journal_entry_id, $debit['account_id'], $debit['amount']);
-            $stmt_items_debit->execute();
-        }
-        $stmt_items_debit->close();
-
-        $stmt_items_credit = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, credit_amount) VALUES (?, ?, ?)");
-        foreach ($credits as $credit) {
-            $stmt_items_credit->bind_param("iid", $journal_entry_id, $credit['account_id'], $credit['amount']);
-            $stmt_items_credit->execute();
-        }
-        $stmt_items_credit->close();
+        // Use the global function to create the entry
+        create_journal_entry($conn, $entry_date, $description, $debits, $credits, 'Manual Entry', null, $reference_number);
         
         $conn->commit();
         log_activity('JOURNAL_CREATED', "Created manual journal entry: " . $description, $conn);
@@ -85,6 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
+
 // --- DATA FETCHING ---
 $accounts_result = $conn->query("SELECT id, account_name, account_code FROM scs_chart_of_accounts WHERE is_active = 1 ORDER BY account_code ASC");
 $accounts = [];
@@ -92,6 +75,7 @@ while ($row = $accounts_result->fetch_assoc()) {
     $accounts[] = $row;
 }
 $accounts_json = json_encode($accounts);
+
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
@@ -225,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('total-debit').textContent = totalDebit.toFixed(2);
         document.getElementById('total-credit').textContent = totalCredit.toFixed(2);
 
-        if (Math.abs(totalDebit - totalCredit) > 0.001) {
+        if (Math.abs(totalDebit - totalCredit) > 0.001 || (totalDebit === 0 && totalCredit === 0)) {
             document.getElementById('imbalance-row').classList.remove('hidden');
         } else {
             document.getElementById('imbalance-row').classList.add('hidden');
@@ -235,15 +219,16 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         const totalDebit = parseFloat(document.getElementById('total-debit').textContent);
         const totalCredit = parseFloat(document.getElementById('total-credit').textContent);
-        if (Math.abs(totalDebit - totalCredit) > 0.001) {
+        if (Math.abs(totalDebit - totalCredit) > 0.001 || (totalDebit === 0 && totalCredit === 0)) {
             e.preventDefault();
-            alert('Cannot save unbalanced entry. Total debits must equal total credits.');
+            alert('Cannot save an empty or unbalanced entry. Total debits must equal total credits.');
         }
     });
 
     // Add initial rows
     addRow();
     addRow();
+    updateTotals();
 });
 </script>
 
