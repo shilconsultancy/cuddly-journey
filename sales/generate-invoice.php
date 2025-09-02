@@ -71,6 +71,7 @@ try {
     // Step 4: Copy items and calculate total cost of goods sold (COGS)
     $stmt_items = $conn->prepare("INSERT INTO scs_invoice_items (invoice_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
     $total_cogs = 0;
+    $items_result->data_seek(0); // Rewind result set
     while ($item = $items_result->fetch_assoc()) {
         $stmt_items->bind_param("iiidd", $new_invoice_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']);
         $stmt_items->execute();
@@ -82,11 +83,11 @@ try {
     $je_description = "Sale on credit - Invoice " . $invoice_number;
     $debits = [
         ['account_id' => 3, 'amount' => $order['total_amount']], // Debit Accounts Receivable
-        ['account_id' => 5, 'amount' => $total_cogs]             // Debit Cost of Goods Sold
+        ['account_id' => 6, 'amount' => $total_cogs]             // Debit Cost of Goods Sold
     ];
     $credits = [
-        ['account_id' => 4, 'amount' => $order['total_amount']], // Credit Sales Revenue
-        ['account_id' => 3, 'amount' => $total_cogs]             // Credit Inventory Asset
+        ['account_id' => 5, 'amount' => $order['total_amount']], // Credit Sales Revenue
+        ['account_id' => 4, 'amount' => $total_cogs]             // **FIXED**: Credit Inventory Asset
     ];
     create_journal_entry($conn, $invoice_date, $je_description, $debits, $credits, 'Invoice', $new_invoice_id);
 

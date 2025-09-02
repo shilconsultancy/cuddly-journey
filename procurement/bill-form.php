@@ -34,10 +34,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $bill_id = $conn->insert_id;
 
         // 2. Create the corresponding journal entry
-        // This entry increases what you owe (AP) and increases what you own (Inventory)
         $je_description = "Record supplier bill #" . $bill_number;
+        
+        // **FIXED LOGIC**: If linked to a PO, it's an inventory cost. Otherwise, it's a general purchase expense.
+        // Assumes Account IDs from our setup: 4 = Inventory Asset, 7 = Accounts Payable, 8 = Purchases
+        if ($po_id) {
+            $debit_account_id = 4; // Debit Inventory Asset
+        } else {
+            $debit_account_id = 8; // Debit Purchases (Expense)
+        }
+        
         $debits = [
-            ['account_id' => 3, 'amount' => $total_amount] // Debit Inventory Asset
+            ['account_id' => $debit_account_id, 'amount' => $total_amount]
         ];
         $credits = [
             ['account_id' => 7, 'amount' => $total_amount] // Credit Accounts Payable
@@ -59,12 +67,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 // --- DATA FETCHING ---
 $suppliers_result = $conn->query("SELECT id, supplier_name FROM scs_suppliers ORDER BY supplier_name ASC");
-// Fetch only SENT purchase orders that haven't been billed yet
+// Fetch only SENT or COMPLETED purchase orders that haven't been billed yet
 $po_result = $conn->query("
     SELECT po.id, po.po_number, po.total_amount 
     FROM scs_purchase_orders po
     LEFT JOIN scs_supplier_bills b ON po.id = b.po_id
-    WHERE po.status = 'Sent' AND b.id IS NULL
+    WHERE po.status IN ('Sent', 'Completed') AND b.id IS NULL
 ");
 $purchase_orders = $po_result->fetch_all(MYSQLI_ASSOC);
 

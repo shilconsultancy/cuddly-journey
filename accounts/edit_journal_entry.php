@@ -1,81 +1,71 @@
 <?php
-// accounts/journal_entry_form.php
+// accounts/edit_journal_entry.php
 
 require_once __DIR__ . '/../templates/header.php';
 
-if (!check_permission('Accounts', 'create')) {
-    die('<div class="glass-card p-8 text-center">You do not have permission to create journal entries.</div>');
+if (!check_permission('Accounts', 'edit')) {
+    die('<div class="glass-card p-8 text-center">You do not have permission to edit journal entries.</div>');
 }
 
-$page_title = "New Journal Entry - BizManager";
+$page_title = "Edit Journal Entry - BizManager";
+$entry_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($entry_id === 0) {
+    header("Location: journal_entries.php");
+    exit();
+}
+
 $message = '';
 $message_type = '';
 
-// --- FORM PROCESSING FOR CREATING A NEW ENTRY ---
+// --- FORM PROCESSING FOR UPDATING AN ENTRY ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $conn->begin_transaction();
     try {
+        $entry_id_post = (int)$_POST['entry_id'];
         $entry_date = $_POST['entry_date'];
         $description = trim($_POST['description']);
         $reference_number = trim($_POST['reference_number']);
         $items = $_POST['items'];
 
+        // Update the main entry
+        $stmt_update = $conn->prepare("UPDATE scs_journal_entries SET entry_date = ?, description = ?, reference_number = ? WHERE id = ? AND source_document IS NULL");
+        $stmt_update->bind_param("sssi", $entry_date, $description, $reference_number, $entry_id_post);
+        $stmt_update->execute();
+
+        // Delete old items
+        $stmt_delete_items = $conn->prepare("DELETE FROM scs_journal_entry_items WHERE journal_entry_id = ?");
+        $stmt_delete_items->bind_param("i", $entry_id_post);
+        $stmt_delete_items->execute();
+
+        // Re-insert new items
         $debits = [];
         $credits = [];
-        $total_debit = 0;
-        $total_credit = 0;
-
         for ($i = 0; $i < count($items['account_id']); $i++) {
             $account_id = $items['account_id'][$i];
             $debit = !empty($items['debit'][$i]) ? (float)$items['debit'][$i] : 0;
             $credit = !empty($items['credit'][$i]) ? (float)$items['credit'][$i] : 0;
-
-            if ($account_id && ($debit > 0 || $credit > 0)) {
-                if ($debit > 0) {
-                    $debits[] = ['account_id' => $account_id, 'amount' => $debit];
-                    $total_debit += $debit;
-                }
-                if ($credit > 0) {
-                    $credits[] = ['account_id' => $account_id, 'amount' => $credit];
-                    $total_credit += $credit;
-                }
-            }
+            if ($debit > 0) $debits[] = ['account_id' => $account_id, 'amount' => $debit];
+            if ($credit > 0) $credits[] = ['account_id' => $account_id, 'amount' => $credit];
         }
 
-        if (abs($total_debit - $total_credit) > 0.001) {
-            throw new Exception("Journal entry is unbalanced. Debits must equal credits.");
-        }
-        
-        if (empty($debits) && empty($credits)) {
-            throw new Exception("Cannot create an empty journal entry.");
-        }
-
-        // --- Create Journal Entry Header ---
-        $created_by = $_SESSION['user_id'];
-        $stmt_journal = $conn->prepare("INSERT INTO scs_journal_entries (entry_date, description, reference_number, source_document, created_by) VALUES (?, ?, ?, 'Manual Entry', ?)");
-        $stmt_journal->bind_param("sssi", $entry_date, $description, $reference_number, $created_by);
-        $stmt_journal->execute();
-        $journal_entry_id = $conn->insert_id;
-        $stmt_journal->close();
-
-        // --- Create Journal Entry Items ---
         $stmt_items_debit = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, debit_amount) VALUES (?, ?, ?)");
         foreach ($debits as $debit) {
-            $stmt_items_debit->bind_param("iid", $journal_entry_id, $debit['account_id'], $debit['amount']);
+            $stmt_items_debit->bind_param("iid", $entry_id_post, $debit['account_id'], $debit['amount']);
             $stmt_items_debit->execute();
         }
         $stmt_items_debit->close();
 
         $stmt_items_credit = $conn->prepare("INSERT INTO scs_journal_entry_items (journal_entry_id, account_id, credit_amount) VALUES (?, ?, ?)");
         foreach ($credits as $credit) {
-            $stmt_items_credit->bind_param("iid", $journal_entry_id, $credit['account_id'], $credit['amount']);
+            $stmt_items_credit->bind_param("iid", $entry_id_post, $credit['account_id'], $credit['amount']);
             $stmt_items_credit->execute();
         }
         $stmt_items_credit->close();
-        
+
         $conn->commit();
-        log_activity('JOURNAL_CREATED', "Created manual journal entry: " . $description, $conn);
-        header("Location: journal_entries.php?success=created");
+        log_activity('JOURNAL_UPDATED', "Updated manual journal entry: " . $description, $conn);
+        header("Location: journal_entry_details.php?id=" . $entry_id_post . "&success=updated");
         exit();
 
     } catch (Exception $e) {
@@ -85,21 +75,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-// --- DATA FETCHING ---
+
+// --- DATA FETCHING for the form ---
+$entry_stmt = $conn->prepare("SELECT * FROM scs_journal_entries WHERE id = ?");
+$entry_stmt->bind_param("i", $entry_id);
+$entry_stmt->execute();
+$entry = $entry_stmt->get_result()->fetch_assoc();
+$entry_stmt->close();
+
+if (!$entry) {
+    die("Journal entry not found.");
+}
+if ($entry['source_document']) {
+    die('<div class="glass-card p-8 text-center">This journal entry was automatically generated and cannot be manually edited.</div>');
+}
+
+$items_stmt = $conn->prepare("SELECT * FROM scs_journal_entry_items WHERE journal_entry_id = ?");
+$items_stmt->bind_param("i", $entry_id);
+$items_stmt->execute();
+$items_result = $items_stmt->get_result();
+$line_items_data = [];
+while ($row = $items_result->fetch_assoc()) {
+    $line_items_data[] = $row;
+}
+$items_stmt->close();
+
 $accounts_result = $conn->query("SELECT id, account_name, account_code FROM scs_chart_of_accounts WHERE is_active = 1 ORDER BY account_code ASC");
 $accounts = [];
 while ($row = $accounts_result->fetch_assoc()) {
     $accounts[] = $row;
 }
 $accounts_json = json_encode($accounts);
+$line_items_json = json_encode($line_items_data);
+
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-semibold text-gray-800">New Journal Entry</h2>
-    <a href="journal_entries.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
-        &larr; Back to Journal
+    <h2 class="text-2xl font-semibold text-gray-800">Edit Journal Entry #<?php echo $entry_id; ?></h2>
+    <a href="journal_entry_details.php?id=<?php echo $entry_id; ?>" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
+        &larr; Back to Details
     </a>
 </div>
 
@@ -110,19 +126,20 @@ $accounts_json = json_encode($accounts);
         </div>
     <?php endif; ?>
 
-    <form action="journal_entry_form.php" method="POST" id="journal-entry-form" class="space-y-6">
+    <form action="edit_journal_entry.php?id=<?php echo $entry_id; ?>" method="POST" id="journal-entry-form" class="space-y-6">
+        <input type="hidden" name="entry_id" value="<?php echo $entry_id; ?>">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <label for="entry_date" class="block text-sm font-medium text-gray-700">Date</label>
-                <input type="date" name="entry_date" id="entry_date" value="<?php echo date('Y-m-d'); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
+                <input type="date" name="entry_date" id="entry_date" value="<?php echo htmlspecialchars($entry['entry_date']); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
             </div>
-            <div>
+             <div>
                 <label for="reference_number" class="block text-sm font-medium text-gray-700">Reference # (Optional)</label>
-                <input type="text" name="reference_number" id="reference_number" class="form-input mt-1 block w-full rounded-md p-3">
+                <input type="text" name="reference_number" id="reference_number" value="<?php echo htmlspecialchars($entry['reference_number']); ?>" class="form-input mt-1 block w-full rounded-md p-3">
             </div>
             <div>
                 <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                <input type="text" name="description" id="description" placeholder="e.g., Owner's capital investment" class="form-input mt-1 block w-full rounded-md p-3" required>
+                <input type="text" name="description" id="description" value="<?php echo htmlspecialchars($entry['description']); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
             </div>
         </div>
 
@@ -155,9 +172,14 @@ $accounts_json = json_encode($accounts);
             <button type="button" id="add-row-btn" class="mt-4 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600">Add Line</button>
         </div>
 
-        <div class="flex justify-end pt-6 border-t border-gray-200/50">
+        <div class="flex justify-between items-center pt-6 border-t border-gray-200/50">
+             <a href="delete_journal_entry.php?id=<?php echo $entry_id; ?>" 
+               onclick="return confirm('Are you sure you want to permanently delete this journal entry? This action cannot be undone.');"
+               class="inline-flex justify-center py-2 px-4 rounded-md text-white bg-red-600 hover:bg-red-700">
+                Delete Entry
+            </a>
             <button type="submit" class="inline-flex justify-center py-2 px-6 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                Save Entry
+                Update Entry
             </button>
         </div>
     </form>
@@ -185,12 +207,13 @@ $accounts_json = json_encode($accounts);
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const accounts = <?php echo $accounts_json; ?>;
+    const existingItems = <?php echo $line_items_json; ?>;
     const container = document.getElementById('journal-items-container');
     const template = document.getElementById('journal-item-template');
     const addRowBtn = document.getElementById('add-row-btn');
     const form = document.getElementById('journal-entry-form');
 
-    function addRow() {
+    function addRow(itemData = null) {
         const newRow = template.content.cloneNode(true);
         const select = newRow.querySelector('.account-select');
         accounts.forEach(acc => {
@@ -199,6 +222,16 @@ document.addEventListener('DOMContentLoaded', function() {
             option.textContent = `${acc.account_code} - ${acc.account_name}`;
             select.appendChild(option);
         });
+
+        if (itemData) {
+            select.value = itemData.account_id;
+            if (itemData.debit_amount > 0) {
+                newRow.querySelector('.debit-input').value = parseFloat(itemData.debit_amount).toFixed(2);
+            }
+            if (itemData.credit_amount > 0) {
+                newRow.querySelector('.credit-input').value = parseFloat(itemData.credit_amount).toFixed(2);
+            }
+        }
         container.appendChild(newRow);
     }
 
@@ -241,9 +274,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add initial rows
-    addRow();
-    addRow();
+    // Populate with existing data for editing
+    if(existingItems.length > 0) {
+        existingItems.forEach(item => addRow(item));
+    } else {
+        addRow(); addRow(); // Start with two blank rows for new entries
+    }
+    updateTotals();
 });
 </script>
 

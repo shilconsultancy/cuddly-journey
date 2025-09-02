@@ -30,7 +30,7 @@ $journal_entries_result = $conn->query("
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">General Journal</h2>
-        <p class="text-gray-600 mt-1">A log of all manual financial transactions.</p>
+        <p class="text-gray-600 mt-1">A log of all financial transactions.</p>
     </div>
     <div class="mt-4 md:mt-0 flex space-x-2">
         <a href="index.php" class="inline-flex items-center px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
@@ -63,7 +63,11 @@ $journal_entries_result = $conn->query("
                 <?php while($entry = $journal_entries_result->fetch_assoc()): ?>
                 <tr class="bg-white/50 border-b border-gray-200/50">
                     <td class="px-6 py-4"><?php echo date($app_config['date_format'], strtotime($entry['entry_date'])); ?></td>
-                    <td class="px-6 py-4 font-semibold"><?php echo htmlspecialchars($entry['description']); ?></td>
+                    <td class="px-6 py-4 font-semibold">
+                        <a href="journal_entry_details.php?id=<?php echo $entry['id']; ?>" class="text-indigo-600 hover:underline">
+                            <?php echo htmlspecialchars($entry['description']); ?>
+                        </a>
+                    </td>
                     <td class="px-6 py-4"><?php echo htmlspecialchars($entry['reference_number']); ?></td>
                     <td class="px-6 py-4 text-right font-mono"><?php echo number_format($entry['total_amount'], 2); ?></td>
                     <td class="px-6 py-4"><?php echo htmlspecialchars($entry['created_by_name']); ?></td>

@@ -63,6 +63,36 @@ $page_title = "Accounts Dashboard - BizManager";
         <h3 class="text-md font-semibold text-gray-800">Accounts Payable</h3>
         <p class="text-xs text-gray-500 mt-1">Track supplier bills and payments.</p>
     </a>
+
+    <a href="trial_balance.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-indigo-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.002 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.002 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Trial Balance</h3>
+        <p class="text-xs text-gray-500 mt-1">Verify the balance of all accounts.</p>
+    </a>
+
+    <a href="profit_and_loss.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-teal-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Profit & Loss</h3>
+        <p class="text-xs text-gray-500 mt-1">View income statement.</p>
+    </a>
+
+    <a href="balance_sheet.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-purple-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Balance Sheet</h3>
+        <p class="text-xs text-gray-500 mt-1">View financial position.</p>
+    </a>
     
 </div>
 
