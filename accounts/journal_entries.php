@@ -7,7 +7,24 @@ if (!check_permission('Accounts', 'view')) {
     die('<div class="glass-card p-8 text-center">You do not have permission to access this page.</div>');
 }
 
-$page_title = "Journal Entries - BizManager";
+$page_title = "General Journal - BizManager";
+
+// --- MESSAGE HANDLING ---
+$message = '';
+$message_type = '';
+if (isset($_GET['success'])) {
+    if ($_GET['success'] == 'created') {
+        $message = "Journal entry created successfully!";
+        $message_type = 'success';
+    } elseif ($_GET['success'] == 'deleted') {
+        $message = "Journal entry deleted successfully!";
+        $message_type = 'success';
+    }
+}
+if (isset($_GET['error'])) {
+    $message = htmlspecialchars($_GET['error']);
+    $message_type = 'error';
+}
 
 // --- DATA FETCHING ---
 $journal_entries_result = $conn->query("
@@ -16,6 +33,8 @@ $journal_entries_result = $conn->query("
         je.entry_date,
         je.description,
         je.reference_number,
+        je.source_document,
+        je.source_document_id,
         u.full_name as created_by_name,
         (SELECT SUM(jei.debit_amount) FROM scs_journal_entry_items jei WHERE jei.journal_entry_id = je.id) as total_amount
     FROM scs_journal_entries je
@@ -41,13 +60,19 @@ $journal_entries_result = $conn->query("
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            New Journal Entry
+            New Manual Entry
         </a>
         <?php endif; ?>
     </div>
 </div>
 
 <div class="glass-card p-6">
+    <?php if (!empty($message)): ?>
+        <div class="mb-4 p-4 rounded-md <?php echo $message_type === 'success' ? 'bg-green-100/80 text-green-800' : 'bg-red-100/80 text-red-800'; ?>">
+            <?php echo htmlspecialchars($message); ?>
+        </div>
+    <?php endif; ?>
+
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left text-gray-700">
             <thead class="text-xs text-gray-800 uppercase bg-gray-50/50">
@@ -55,13 +80,14 @@ $journal_entries_result = $conn->query("
                     <th scope="col" class="px-6 py-3">Date</th>
                     <th scope="col" class="px-6 py-3">Description</th>
                     <th scope="col" class="px-6 py-3">Reference</th>
+                    <th scope="col" class="px-6 py-3">Source</th>
                     <th scope="col" class="px-6 py-3 text-right">Amount</th>
                     <th scope="col" class="px-6 py-3">Created By</th>
                 </tr>
             </thead>
             <tbody>
                 <?php while($entry = $journal_entries_result->fetch_assoc()): ?>
-                <tr class="bg-white/50 border-b border-gray-200/50">
+                <tr class="bg-white/50 border-b border-gray-200/50 hover:bg-gray-50/50">
                     <td class="px-6 py-4"><?php echo date($app_config['date_format'], strtotime($entry['entry_date'])); ?></td>
                     <td class="px-6 py-4 font-semibold">
                         <a href="journal_entry_details.php?id=<?php echo $entry['id']; ?>" class="text-indigo-600 hover:underline">
@@ -69,6 +95,15 @@ $journal_entries_result = $conn->query("
                         </a>
                     </td>
                     <td class="px-6 py-4"><?php echo htmlspecialchars($entry['reference_number']); ?></td>
+                    <td class="px-6 py-4">
+                        <?php 
+                            $source_doc = htmlspecialchars($entry['source_document'] ?: 'Manual Entry');
+                            $color_class = ($source_doc === 'Manual Entry') ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800';
+                        ?>
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full <?php echo $color_class; ?>">
+                            <?php echo $source_doc; ?>
+                        </span>
+                    </td>
                     <td class="px-6 py-4 text-right font-mono"><?php echo number_format($entry['total_amount'], 2); ?></td>
                     <td class="px-6 py-4"><?php echo htmlspecialchars($entry['created_by_name']); ?></td>
                 </tr>

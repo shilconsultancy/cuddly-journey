@@ -2,6 +2,7 @@
 // pos/process_sale.php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../functions.php';
 
 // Get the raw POST data from the JS fetch call
 $json_data = file_get_contents('php://input');
@@ -24,7 +25,6 @@ if (empty($cart) || !$user_id || !$location_id || !$session_id) {
 $conn->begin_transaction();
 try {
     // 1. Get or Create a 'Walk-in Customer'
-    $customer_id = 0;
     $cust_stmt = $conn->prepare("SELECT id FROM scs_customers WHERE customer_name = 'Walk-in Customer'");
     $cust_stmt->execute();
     $cust_result = $cust_stmt->get_result();
@@ -47,10 +47,10 @@ try {
     $order_number = 'SO-' . date('Y') . '-' . str_pad($sales_order_id, 5, '0', STR_PAD_LEFT);
     $conn->query("UPDATE scs_sales_orders SET order_number = '$order_number' WHERE id = $sales_order_id");
 
-    // 3. Create Sales Order Items & Update Inventory
+    // 3. Create SO Items, Update Inventory, and Calculate COGS
     $stmt_so_item = $conn->prepare("INSERT INTO scs_sales_order_items (sales_order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
     $stmt_inv_update = $conn->prepare("UPDATE scs_inventory SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?");
-    $total_cost = 0;
+    $total_cogs = 0;
     $prod_cost_stmt = $conn->prepare("SELECT cost_price FROM scs_products WHERE id = ?");
 
     foreach ($cart as $product_id => $item) {
@@ -61,15 +61,16 @@ try {
         $stmt_inv_update->bind_param("iii", $item['quantity'], $product_id, $location_id);
         $stmt_inv_update->execute();
         
-        // Calculate total cost of goods sold
+        // Calculate total cost of goods sold using the current WAC
         $prod_cost_stmt->bind_param("i", $product_id);
         $prod_cost_stmt->execute();
-        $cost_price = $prod_cost_stmt->get_result()->fetch_assoc()['cost_price'] ?? 0;
-        $total_cost += $item['quantity'] * $cost_price;
+        $cost_price_result = $prod_cost_stmt->get_result()->fetch_assoc();
+        $cost_price = $cost_price_result ? $cost_price_result['cost_price'] : 0;
+        $total_cogs += $item['quantity'] * $cost_price;
     }
     $prod_cost_stmt->close();
 
-    // 4. Create Invoice
+    // 4. Create Invoice & Invoice Items
     $placeholder_inv = "TEMP-INV-" . time();
     $stmt_inv = $conn->prepare("INSERT INTO scs_invoices (invoice_number, sales_order_id, customer_id, invoice_date, due_date, total_amount, amount_paid, status, created_by) VALUES (?, ?, ?, CURDATE(), CURDATE(), ?, ?, 'Paid', ?)");
     $stmt_inv->bind_param("siiddi", $placeholder_inv, $sales_order_id, $customer_id, $total_amount, $total_amount, $user_id);
@@ -78,36 +79,33 @@ try {
     $invoice_number = 'INV-' . date('Y') . '-' . str_pad($invoice_id, 5, '0', STR_PAD_LEFT);
     $conn->query("UPDATE scs_invoices SET invoice_number = '$invoice_number' WHERE id = $invoice_id");
 
-    // 5. Create Invoice Items
     $stmt_inv_item = $conn->prepare("INSERT INTO scs_invoice_items (invoice_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
-     foreach ($cart as $product_id => $item) {
+    foreach ($cart as $product_id => $item) {
         $line_total = $item['quantity'] * $item['price'];
         $stmt_inv_item->bind_param("iiidd", $invoice_id, $product_id, $item['quantity'], $item['price'], $line_total);
         $stmt_inv_item->execute();
     }
 
-    // 6. Record Payment
-    $stmt_payment = $conn->prepare("INSERT INTO scs_invoice_payments (invoice_id, payment_date, amount, payment_method, recorded_by) VALUES (?, CURDATE(), ?, ?, ?)");
-    $stmt_payment->bind_param("idsi", $invoice_id, $total_amount, $payment_method, $user_id);
-    $stmt_payment->execute();
-
-    // 7. Create POS Sale Record
-    $change_given = $amount_tendered - $total_amount;
+    // 5. Create POS Sale Record
+    $change_given = $amount_tendered > $total_amount ? $amount_tendered - $total_amount : 0;
     $stmt_pos_sale = $conn->prepare("INSERT INTO scs_pos_sales (pos_session_id, sales_order_id, invoice_id, customer_id, payment_method, amount_tendered, change_given) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt_pos_sale->bind_param("iiiisdd", $session_id, $sales_order_id, $invoice_id, $customer_id, $payment_method, $amount_tendered, $change_given);
     $stmt_pos_sale->execute();
+    $payment_id = $conn->insert_id;
     
-    // 8. Create Journal Entry for the cash sale
-    $je_description = "POS Sale - Invoice " . $invoice_number;
-    $debits = [
-        ['account_id' => 1, 'amount' => $total_amount], // Debit Cash on Hand
-        ['account_id' => 5, 'amount' => $total_cost]      // Debit Cost of Goods Sold
-    ];
-    $credits = [
-        ['account_id' => 4, 'amount' => $total_amount], // Credit Sales Revenue
-        ['account_id' => 3, 'amount' => $total_cost]      // Credit Inventory Asset
-    ];
-    create_journal_entry($conn, date('Y-m-d'), $je_description, $debits, $credits, 'POS Sale', $invoice_id);
+    // 6. Create Journal Entry for the cash sale (Revenue)
+    $je_description_revenue = "POS Sale - Invoice " . $invoice_number;
+    // Account IDs: 2=Cash on Hand, 6=Sales Revenue
+    $debits_revenue = [ ['account_id' => 2, 'amount' => $total_amount] ];
+    $credits_revenue = [ ['account_id' => 6, 'amount' => $total_amount] ];
+    create_journal_entry($conn, date('Y-m-d'), $je_description_revenue, $debits_revenue, $credits_revenue, 'POS Sale', $payment_id);
+
+    // 7. Create Journal Entry for Cost of Goods Sold
+    $je_description_cogs = "Cost of Goods Sold for POS Invoice " . $invoice_number;
+    // Account IDs: 7=COGS, 4=Inventory Asset
+    $debits_cogs = [ ['account_id' => 7, 'amount' => $total_cogs] ];
+    $credits_cogs = [ ['account_id' => 4, 'amount' => $total_cogs] ];
+    create_journal_entry($conn, date('Y-m-d'), $je_description_cogs, $debits_cogs, $credits_cogs, 'POS Sale', $payment_id);
 
     $conn->commit();
     echo json_encode(['success' => true, 'message' => 'Sale processed successfully.', 'invoice_id' => $invoice_id]);

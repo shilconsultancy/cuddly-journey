@@ -41,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($payment_amount <= 0) {
         $message = "Payment amount must be greater than zero.";
         $message_type = 'error';
-    } elseif ($payment_amount > $balance_due + 0.001) {
+    } elseif ($payment_amount > $balance_due + 0.001) { // Add tolerance for float comparison
         $message = "Payment amount cannot be greater than the balance due.";
         $message_type = 'error';
     } elseif (empty($payment_account_id)) {
@@ -65,8 +65,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Step 3: Create the journal entry for the payment
             $je_description = "Payment for supplier bill #" . $bill['bill_number'];
-            $debits = [ ['account_id' => 7, 'amount' => $payment_amount] ]; // Debit Accounts Payable
-            $credits = [ ['account_id' => $payment_account_id, 'amount' => $payment_amount] ]; // Credit Cash/Bank
+            // Account IDs: 7 = Accounts Payable, from your CoA
+            $debits = [ ['account_id' => 7, 'amount' => $payment_amount] ]; // Debit Accounts Payable to reduce liability
+            $credits = [ ['account_id' => $payment_account_id, 'amount' => $payment_amount] ]; // Credit Cash/Bank to reduce asset
             create_journal_entry($conn, $payment_date, $je_description, $debits, $credits, 'Bill Payment', $payment_id);
 
             $conn->commit();
@@ -85,7 +86,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 // Data fetching for the form dropdown
 $cash_asset_accounts = $conn->query("SELECT id, account_name FROM scs_chart_of_accounts WHERE account_type = 'Asset' AND (account_name LIKE '%Cash%' OR account_name LIKE '%Bank%')");
 
-require_once __DIR__ . '/../templates/header.php';
 ?>
 
 <title><?php echo $page_title; ?></title>

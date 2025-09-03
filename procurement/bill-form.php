@@ -34,15 +34,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $bill_id = $conn->insert_id;
 
         // 2. Create the corresponding journal entry
-        $je_description = "Record supplier bill #" . $bill_number;
+        $je_description = "Record supplier bill #" . $bill_number . " from " . $_POST['supplier_name_hidden'];
         
-        // **FIXED LOGIC**: If linked to a PO, it's an inventory cost. Otherwise, it's a general purchase expense.
-        // Assumes Account IDs from our setup: 4 = Inventory Asset, 7 = Accounts Payable, 8 = Purchases
-        if ($po_id) {
-            $debit_account_id = 4; // Debit Inventory Asset
-        } else {
-            $debit_account_id = 8; // Debit Purchases (Expense)
-        }
+        // Account IDs: 4 = Inventory Asset, 8 = Purchases (Expense), 7 = Accounts Payable
+        $debit_account_id = $po_id ? 4 : 8;
         
         $debits = [
             ['account_id' => $debit_account_id, 'amount' => $total_amount]
@@ -67,9 +62,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 // --- DATA FETCHING ---
 $suppliers_result = $conn->query("SELECT id, supplier_name FROM scs_suppliers ORDER BY supplier_name ASC");
-// Fetch only SENT or COMPLETED purchase orders that haven't been billed yet
 $po_result = $conn->query("
-    SELECT po.id, po.po_number, po.total_amount 
+    SELECT po.id, po.po_number, po.total_amount, po.supplier_id 
     FROM scs_purchase_orders po
     LEFT JOIN scs_supplier_bills b ON po.id = b.po_id
     WHERE po.status IN ('Sent', 'Completed') AND b.id IS NULL
@@ -95,23 +89,26 @@ $purchase_orders = $po_result->fetch_all(MYSQLI_ASSOC);
     <?php endif; ?>
 
     <form action="bill-form.php" method="POST" class="space-y-6">
+        <input type="hidden" name="supplier_name_hidden" id="supplier_name_hidden" value="">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
+                <label for="po_id" class="block text-sm font-medium text-gray-700">Link to PO (Optional)</label>
+                <select name="po_id" id="po_id" class="form-input mt-1 block w-full rounded-md p-3">
+                    <option value="">None (e.g., for utility bill)</option>
+                    <?php foreach($purchase_orders as $po): ?>
+                         <option value="<?php echo $po['id']; ?>" data-amount="<?php echo $po['total_amount']; ?>" data-supplier-id="<?php echo $po['supplier_id']; ?>">
+                            <?php echo htmlspecialchars($po['po_number']); ?>
+                         </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+             <div>
                 <label for="supplier_id" class="block text-sm font-medium text-gray-700">Supplier</label>
                 <select name="supplier_id" id="supplier_id" class="form-input mt-1 block w-full rounded-md p-3" required>
                     <option value="">Select a supplier...</option>
                     <?php while($supplier = $suppliers_result->fetch_assoc()): ?>
                         <option value="<?php echo $supplier['id']; ?>"><?php echo htmlspecialchars($supplier['supplier_name']); ?></option>
                     <?php endwhile; ?>
-                </select>
-            </div>
-            <div>
-                <label for="po_id" class="block text-sm font-medium text-gray-700">Link to PO (Optional)</label>
-                <select name="po_id" id="po_id" class="form-input mt-1 block w-full rounded-md p-3">
-                    <option value="">None</option>
-                    <?php foreach($purchase_orders as $po): ?>
-                         <option value="<?php echo $po['id']; ?>" data-amount="<?php echo $po['total_amount']; ?>"><?php echo htmlspecialchars($po['po_number']); ?></option>
-                    <?php endforeach; ?>
                 </select>
             </div>
         </div>
@@ -131,7 +128,7 @@ $purchase_orders = $po_result->fetch_all(MYSQLI_ASSOC);
         </div>
         <div>
             <label for="total_amount" class="block text-sm font-medium text-gray-700">Total Amount</label>
-            <input type="number" step="0.01" name="total_amount" id="total_amount" class="form-input mt-1 block w-full rounded-md p-3" required>
+            <input type="number" step="0.01" min="0.01" name="total_amount" id="total_amount" class="form-input mt-1 block w-full rounded-md p-3" required>
         </div>
         <div class="flex justify-end pt-6 border-t border-gray-200/50">
             <button type="submit" class="w-full md:w-auto inline-flex justify-center py-3 px-6 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
@@ -141,12 +138,42 @@ $purchase_orders = $po_result->fetch_all(MYSQLI_ASSOC);
     </form>
 </div>
 <script>
-document.getElementById('po_id').addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-    const amount = selectedOption.dataset.amount;
-    if (amount) {
-        document.getElementById('total_amount').value = parseFloat(amount).toFixed(2);
+document.addEventListener('DOMContentLoaded', function() {
+    const poDropdown = document.getElementById('po_id');
+    const supplierDropdown = document.getElementById('supplier_id');
+    const amountInput = document.getElementById('total_amount');
+    const supplierNameHidden = document.getElementById('supplier_name_hidden');
+
+    function updateSupplierName() {
+        const selectedSupplier = supplierDropdown.options[supplierDropdown.selectedIndex];
+        if (selectedSupplier && selectedSupplier.value) {
+            supplierNameHidden.value = selectedSupplier.text;
+        } else {
+            supplierNameHidden.value = '';
+        }
     }
+
+    poDropdown.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const amount = selectedOption.dataset.amount;
+        const supplierId = selectedOption.dataset.supplierId;
+
+        if (supplierId) {
+            supplierDropdown.value = supplierId;
+            supplierDropdown.disabled = true; // Lock supplier if PO is selected
+            amountInput.value = parseFloat(amount).toFixed(2);
+        } else {
+            supplierDropdown.disabled = false;
+            supplierDropdown.value = '';
+            amountInput.value = '';
+        }
+        updateSupplierName();
+    });
+
+    supplierDropdown.addEventListener('change', updateSupplierName);
+    
+    // Initial call in case the form is reloaded with a value
+    updateSupplierName();
 });
 </script>
 <?php

@@ -33,36 +33,27 @@ $invoices_result = $conn->query($sql);
 
 // Initialize aging buckets
 $aging = [
-    'current' => ['total' => 0, 'invoices' => []],
-    '1-30' => ['total' => 0, 'invoices' => []],
-    '31-60' => ['total' => 0, 'invoices' => []],
-    '61-90' => ['total' => 0, 'invoices' => []],
-    '90+' => ['total' => 0, 'invoices' => []]
+    'current' => ['total' => 0], '1-30' => ['total' => 0],
+    '31-60' => ['total' => 0], '61-90' => ['total' => 0], '90+' => ['total' => 0]
 ];
 $total_receivables = 0;
 
-if ($invoices_result) {
-    while ($invoice = $invoices_result->fetch_assoc()) {
+if ($invoices_result && $invoices_result->num_rows > 0) {
+    // We need a seekable result set to loop through it twice
+    $invoices_data = $invoices_result->fetch_all(MYSQLI_ASSOC);
+    
+    foreach ($invoices_data as $invoice) {
         $total_receivables += $invoice['balance_due'];
         $days_overdue = (int)$invoice['days_overdue'];
 
-        if ($days_overdue <= 0) {
-            $aging['current']['invoices'][] = $invoice;
-            $aging['current']['total'] += $invoice['balance_due'];
-        } elseif ($days_overdue >= 1 && $days_overdue <= 30) {
-            $aging['1-30']['invoices'][] = $invoice;
-            $aging['1-30']['total'] += $invoice['balance_due'];
-        } elseif ($days_overdue >= 31 && $days_overdue <= 60) {
-            $aging['31-60']['invoices'][] = $invoice;
-            $aging['31-60']['total'] += $invoice['balance_due'];
-        } elseif ($days_overdue >= 61 && $days_overdue <= 90) {
-            $aging['61-90']['invoices'][] = $invoice;
-            $aging['61-90']['total'] += $invoice['balance_due'];
-        } else {
-            $aging['90+']['invoices'][] = $invoice;
-            $aging['90+']['total'] += $invoice['balance_due'];
-        }
+        if ($days_overdue <= 0) $aging['current']['total'] += $invoice['balance_due'];
+        elseif ($days_overdue <= 30) $aging['1-30']['total'] += $invoice['balance_due'];
+        elseif ($days_overdue <= 60) $aging['31-60']['total'] += $invoice['balance_due'];
+        elseif ($days_overdue <= 90) $aging['61-90']['total'] += $invoice['balance_due'];
+        else $aging['90+']['total'] += $invoice['balance_due'];
     }
+} else {
+    $invoices_data = [];
 }
 
 ?>
@@ -116,9 +107,8 @@ if ($invoices_result) {
                 </tr>
             </thead>
             <tbody>
-                <?php mysqli_data_seek($invoices_result, 0); ?>
-                <?php if ($invoices_result->num_rows > 0): ?>
-                    <?php while($invoice = $invoices_result->fetch_assoc()): ?>
+                <?php if (!empty($invoices_data)): ?>
+                    <?php foreach($invoices_data as $invoice): ?>
                     <tr class="bg-white/50 border-b border-gray-200/50">
                         <td class="px-6 py-4 font-semibold"><?php echo htmlspecialchars($invoice['customer_name']); ?></td>
                         <td class="px-6 py-4">
@@ -132,7 +122,7 @@ if ($invoices_result) {
                         </td>
                         <td class="px-6 py-4 text-right font-semibold font-mono"><?php echo number_format($invoice['balance_due'], 2); ?></td>
                     </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
                         <td colspan="5" class="px-6 py-4 text-center text-gray-500">No outstanding invoices.</td>

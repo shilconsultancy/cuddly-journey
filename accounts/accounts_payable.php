@@ -11,6 +11,7 @@ $page_title = "Accounts Payable Aging - BizManager";
 
 // --- DATA FETCHING ---
 $today = date('Y-m-d');
+$supplier_filter = isset($_GET['supplier_id']) ? (int)$_GET['supplier_id'] : 0;
 
 $sql = "
     SELECT 
@@ -26,40 +27,35 @@ $sql = "
     FROM scs_supplier_bills b
     JOIN scs_suppliers s ON b.supplier_id = s.id
     WHERE b.status IN ('Unpaid', 'Partially Paid') AND (b.total_amount - b.amount_paid) > 0.01
-    ORDER BY s.supplier_name, b.due_date ASC
 ";
+
+if ($supplier_filter > 0) {
+    $sql .= " AND b.supplier_id = " . $supplier_filter;
+}
+
+$sql .= " ORDER BY s.supplier_name, b.due_date ASC";
 
 $bills_result = $conn->query($sql);
 
 // Initialize aging buckets
 $aging = [
-    'current' => ['total' => 0],
-    '1-30' => ['total' => 0],
-    '31-60' => ['total' => 0],
-    '61-90' => ['total' => 0],
-    '90+' => ['total' => 0]
+    'current' => ['total' => 0], '1-30' => ['total' => 0],
+    '31-60' => ['total' => 0], '61-90' => ['total' => 0], '90+' => ['total' => 0]
 ];
 $total_payables = 0;
 
-if ($bills_result) {
+if ($bills_result && $bills_result->num_rows > 0) {
+    mysqli_data_seek($bills_result, 0); // Rewind pointer
     while ($bill = $bills_result->fetch_assoc()) {
         $total_payables += $bill['balance_due'];
         $days_overdue = (int)$bill['days_overdue'];
-
-        if ($days_overdue <= 0) {
-            $aging['current']['total'] += $bill['balance_due'];
-        } elseif ($days_overdue >= 1 && $days_overdue <= 30) {
-            $aging['1-30']['total'] += $bill['balance_due'];
-        } elseif ($days_overdue >= 31 && $days_overdue <= 60) {
-            $aging['31-60']['total'] += $bill['balance_due'];
-        } elseif ($days_overdue >= 61 && $days_overdue <= 90) {
-            $aging['61-90']['total'] += $bill['balance_due'];
-        } else {
-            $aging['90+']['total'] += $bill['balance_due'];
-        }
+        if ($days_overdue <= 0) $aging['current']['total'] += $bill['balance_due'];
+        elseif ($days_overdue <= 30) $aging['1-30']['total'] += $bill['balance_due'];
+        elseif ($days_overdue <= 60) $aging['31-60']['total'] += $bill['balance_due'];
+        elseif ($days_overdue <= 90) $aging['61-90']['total'] += $bill['balance_due'];
+        else $aging['90+']['total'] += $bill['balance_due'];
     }
 }
-
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
@@ -112,8 +108,7 @@ if ($bills_result) {
                 </tr>
             </thead>
             <tbody>
-                <?php mysqli_data_seek($bills_result, 0); ?>
-                <?php if ($bills_result->num_rows > 0): ?>
+                <?php if ($bills_result->num_rows > 0): mysqli_data_seek($bills_result, 0); ?>
                     <?php while($bill = $bills_result->fetch_assoc()): ?>
                     <tr class="bg-white/50 border-b border-gray-200/50">
                         <td class="px-6 py-4 font-semibold"><?php echo htmlspecialchars($bill['supplier_name']); ?></td>

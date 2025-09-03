@@ -25,6 +25,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $total_debit = 0;
         $total_credit = 0;
 
+        if (empty($description)) {
+            throw new Exception("Description is a required field.");
+        }
+
         if (isset($items['account_id'])) {
             for ($i = 0; $i < count($items['account_id']); $i++) {
                 $account_id = $items['account_id'][$i];
@@ -104,39 +108,44 @@ $accounts_json = json_encode($accounts);
                 <label for="reference_number" class="block text-sm font-medium text-gray-700">Reference # (Optional)</label>
                 <input type="text" name="reference_number" id="reference_number" class="form-input mt-1 block w-full rounded-md p-3">
             </div>
-            <div>
+            <div class="md:col-span-3">
                 <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
                 <input type="text" name="description" id="description" placeholder="e.g., Owner's capital investment" class="form-input mt-1 block w-full rounded-md p-3" required>
             </div>
         </div>
 
         <div class="border-t border-gray-200/50 pt-6">
-            <table class="w-full text-sm">
-                <thead class="text-xs text-gray-800 uppercase">
-                    <tr>
-                        <th class="px-4 py-2 w-2/5">Account</th>
-                        <th class="px-4 py-2 text-right">Debit</th>
-                        <th class="px-4 py-2 text-right">Credit</th>
-                        <th class="px-4 py-2"></th>
-                    </tr>
-                </thead>
-                <tbody id="journal-items-container">
-                    </tbody>
-                <tfoot class="font-semibold text-gray-800">
-                    <tr>
-                        <td class="text-right px-4 py-2">Totals:</td>
-                        <td id="total-debit" class="px-4 py-2 text-right font-mono">0.00</td>
-                        <td id="total-credit" class="px-4 py-2 text-right font-mono">0.00</td>
-                        <td></td>
-                    </tr>
-                     <tr id="imbalance-row" class="hidden">
-                        <td colspan="4" class="text-center p-2 text-red-600 font-bold bg-red-100/50">
-                            Totals do not balance!
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-            <button type="button" id="add-row-btn" class="mt-4 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600">Add Line</button>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-xs text-gray-800 uppercase">
+                        <tr>
+                            <th class="px-4 py-2 w-2/5 text-left">Account</th>
+                            <th class="px-4 py-2 text-right">Debit</th>
+                            <th class="px-4 py-2 text-right">Credit</th>
+                            <th class="px-4 py-2 w-12"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="journal-items-container">
+                        </tbody>
+                    <tfoot class="font-semibold text-gray-800">
+                        <tr class="border-t-2 border-gray-300/50">
+                            <td class="text-right px-4 py-3">Totals:</td>
+                            <td id="total-debit" class="px-4 py-3 text-right font-mono">0.00</td>
+                            <td id="total-credit" class="px-4 py-3 text-right font-mono">0.00</td>
+                            <td></td>
+                        </tr>
+                         <tr id="imbalance-row" class="hidden">
+                            <td colspan="4" class="text-center p-2 text-red-600 font-bold bg-red-100/50">
+                                Totals do not balance!
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <button type="button" id="add-row-btn" class="mt-4 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block -mt-1 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                Add Line
+            </button>
         </div>
 
         <div class="flex justify-end pt-6 border-t border-gray-200/50">
@@ -155,13 +164,15 @@ $accounts_json = json_encode($accounts);
             </select>
         </td>
         <td class="p-2">
-            <input type="number" step="0.01" name="items[debit][]" class="form-input w-full text-right debit-input" placeholder="0.00">
+            <input type="number" step="0.01" min="0" name="items[debit][]" class="form-input w-full text-right debit-input" placeholder="0.00">
         </td>
         <td class="p-2">
-            <input type="number" step="0.01" name="items[credit][]" class="form-input w-full text-right credit-input" placeholder="0.00">
+            <input type="number" step="0.01" min="0" name="items[credit][]" class="form-input w-full text-right credit-input" placeholder="0.00">
         </td>
         <td class="p-2 text-center">
-            <button type="button" class="remove-row-btn text-red-500 hover:text-red-700 font-bold text-lg">&times;</button>
+            <button type="button" class="remove-row-btn p-1 text-red-500 hover:text-red-700 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
         </td>
     </tr>
 </template>
@@ -187,14 +198,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     addRowBtn.addEventListener('click', addRow);
-    container.addEventListener('click', e => { if (e.target.matches('.remove-row-btn')) { e.target.closest('tr').remove(); updateTotals(); } });
+    container.addEventListener('click', e => { 
+        if (e.target.closest('.remove-row-btn')) { 
+            e.target.closest('tr').remove(); 
+            updateTotals(); 
+        } 
+    });
     container.addEventListener('input', e => {
         if (e.target.matches('.debit-input, .credit-input')) {
             const row = e.target.closest('tr');
             const debitInput = row.querySelector('.debit-input');
             const creditInput = row.querySelector('.credit-input');
-            if (e.target.matches('.debit-input') && e.target.value) creditInput.value = '';
-            else if (e.target.matches('.credit-input') && e.target.value) debitInput.value = '';
+            if (e.target.matches('.debit-input') && e.target.value) {
+                creditInput.value = '';
+            } else if (e.target.matches('.credit-input') && e.target.value) {
+                debitInput.value = '';
+            }
             updateTotals();
         }
     });
@@ -209,10 +228,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('total-debit').textContent = totalDebit.toFixed(2);
         document.getElementById('total-credit').textContent = totalCredit.toFixed(2);
 
+        const imbalanceRow = document.getElementById('imbalance-row');
         if (Math.abs(totalDebit - totalCredit) > 0.001 || (totalDebit === 0 && totalCredit === 0)) {
-            document.getElementById('imbalance-row').classList.remove('hidden');
+            imbalanceRow.classList.remove('hidden');
         } else {
-            document.getElementById('imbalance-row').classList.add('hidden');
+            imbalanceRow.classList.add('hidden');
         }
     }
     

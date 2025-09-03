@@ -3,6 +3,7 @@
 
 // STEP 1: Include the core config and start the session first.
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../functions.php';
 
 // --- SECURITY CHECK ---
 if (!check_permission('Procurement', 'create')) {
@@ -21,7 +22,6 @@ $message_type = '';
 
 // STEP 2: Perform ALL form processing and potential redirects BEFORE any HTML is sent.
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
-    // We need to fetch the PO details again inside the POST block to process it.
     $stmt_po_check = $conn->prepare("SELECT * FROM scs_purchase_orders WHERE id = ?");
     $stmt_po_check->bind_param("i", $po_id);
     $stmt_po_check->execute();
@@ -39,43 +39,67 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
         try {
             $created_by = $_SESSION['user_id'];
             
-            // Task 1: Update Inventory
-            $stmt_inventory_update = $conn->prepare("
-                INSERT INTO scs_inventory (product_id, location_id, quantity, last_updated_by) VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE quantity = quantity + ?, last_updated_by = ?
-            ");
+            // --- WEIGHTED AVERAGE COST LOGIC ---
+            $stmt_inventory = $conn->prepare("SELECT quantity FROM scs_inventory WHERE product_id = ? AND location_id = ?");
+            $stmt_product_cost = $conn->prepare("SELECT cost_price FROM scs_products WHERE id = ?");
+            $stmt_update_cost = $conn->prepare("UPDATE scs_products SET cost_price = ? WHERE id = ?");
+            $stmt_inventory_update = $conn->prepare(
+                "INSERT INTO scs_inventory (product_id, location_id, quantity, last_updated_by) VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE quantity = quantity + ?, last_updated_by = ?"
+            );
 
             $total_items_received = 0;
             foreach ($received_products as $product_id => $details) {
                 $quantity_received = (int)$details['qty'];
+                $unit_price_paid = (float)$details['price'];
+
                 if ($quantity_received > 0) {
+                    // Get current stock and cost
+                    $stmt_inventory->bind_param("ii", $product_id, $location_id);
+                    $stmt_inventory->execute();
+                    $inv_result = $stmt_inventory->get_result()->fetch_assoc();
+                    $current_stock = $inv_result['quantity'] ?? 0;
+
+                    $stmt_product_cost->bind_param("i", $product_id);
+                    $stmt_product_cost->execute();
+                    $prod_result = $stmt_product_cost->get_result()->fetch_assoc();
+                    $current_cost = $prod_result['cost_price'] ?? 0;
+
+                    // Calculate new average cost
+                    $new_total_stock = $current_stock + $quantity_received;
+                    if ($new_total_stock > 0) {
+                        $new_avg_cost = (($current_stock * $current_cost) + ($quantity_received * $unit_price_paid)) / $new_total_stock;
+                    } else {
+                        $new_avg_cost = $unit_price_paid; // If no previous stock, the new cost is the price paid
+                    }
+                    
+                    // Update the product's main cost price
+                    $stmt_update_cost->bind_param("di", $new_avg_cost, $product_id);
+                    $stmt_update_cost->execute();
+
+                    // Update inventory quantity
                     $stmt_inventory_update->bind_param("iiiiii", $product_id, $location_id, $quantity_received, $created_by, $quantity_received, $created_by);
                     $stmt_inventory_update->execute();
                     $total_items_received += $quantity_received;
                 }
             }
             
-            // Task 2: Auto-create the Supplier Bill
+            // Task 2: Auto-create the Supplier Bill (Logic remains the same)
             $bill_number = 'BILL-' . $po_for_processing['po_number'];
             $bill_date = date('Y-m-d');
-            $due_date = date('Y-m-d', strtotime('+30 days')); // Default 30-day payment term
+            $due_date = date('Y-m-d', strtotime('+30 days'));
             $stmt_bill = $conn->prepare("INSERT INTO scs_supplier_bills (supplier_id, po_id, bill_number, bill_date, due_date, total_amount, status, created_by) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?)");
             $stmt_bill->bind_param("iisssdi", $po_for_processing['supplier_id'], $po_id, $bill_number, $bill_date, $due_date, $po_for_processing['total_amount'], $created_by);
             $stmt_bill->execute();
             $bill_id = $conn->insert_id;
 
-            // Task 3: Auto-create the Journal Entry for this bill
-            // This entry increases what you owe (AP) and increases what you own (Inventory)
+            // Task 3: Auto-create the Journal Entry for this bill (Logic remains the same)
             $je_description = "Goods received against PO #" . $po_for_processing['po_number'];
-            $debits = [
-                ['account_id' => 4, 'amount' => $po_for_processing['total_amount']] // Debit Inventory Asset
-            ];
-            $credits = [
-                ['account_id' => 7, 'amount' => $po_for_processing['total_amount']] // Credit Accounts Payable
-            ];
+            $debits = [ ['account_id' => 4, 'amount' => $po_for_processing['total_amount']] ];
+            $credits = [ ['account_id' => 7, 'amount' => $po_for_processing['total_amount']] ];
             create_journal_entry($conn, $bill_date, $je_description, $debits, $credits, 'Supplier Bill', $bill_id);
 
-            // Task 4: Update PO status to 'Completed'
+            // Task 4: Update PO status to 'Completed' (Logic remains the same)
             $stmt_po_status = $conn->prepare("UPDATE scs_purchase_orders SET status = 'Completed' WHERE id = ?");
             $stmt_po_status->bind_param("i", $po_id);
             $stmt_po_status->execute();
@@ -84,7 +108,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
 
             $conn->commit();
             
-            // This redirect will now work because no HTML has been sent.
             header("Location: po-details.php?id=" . $po_id . "&success=received");
             exit();
 
@@ -156,8 +179,9 @@ $items_stmt->close();
                 <thead class="text-xs text-gray-800 uppercase bg-gray-100">
                     <tr>
                         <th scope="col" class="px-6 py-3">Product</th>
-                        <th scope="col" class="px-6 py-3 text-center">Quantity Ordered</th>
-                        <th scope="col" class="px-6 py-3 text-center w-48">Quantity Received</th>
+                        <th scope="col" class="px-6 py-3 text-center">Qty Ordered</th>
+                        <th scope="col" class="px-6 py-3 text-center w-48">Qty Received</th>
+                        <th scope="col" class="px-6 py-3 text-center w-48">Unit Price Paid</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -174,6 +198,11 @@ $items_stmt->close();
                             <input type="number" name="products[<?php echo $item['product_id']; ?>][qty]" 
                                    class="form-input w-full p-2 rounded-md text-center" 
                                    value="<?php echo htmlspecialchars($item['quantity']); ?>" min="0" required>
+                        </td>
+                        <td class="px-6 py-4">
+                            <input type="number" step="0.01" name="products[<?php echo $item['product_id']; ?>][price]" 
+                                   class="form-input w-full p-2 rounded-md text-center" 
+                                   value="<?php echo htmlspecialchars(number_format($item['unit_price'], 2, '.', '')); ?>" min="0" required>
                         </td>
                     </tr>
                     <?php endforeach; ?>

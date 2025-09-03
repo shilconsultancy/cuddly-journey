@@ -15,7 +15,6 @@ if ($entry_id === 0) {
 $page_title = "Journal Entry Details - BizManager";
 
 // --- DATA FETCHING ---
-// Get main entry details
 $entry_stmt = $conn->prepare("SELECT je.*, u.full_name as creator FROM scs_journal_entries je JOIN scs_users u ON je.created_by = u.id WHERE je.id = ?");
 $entry_stmt->bind_param("i", $entry_id);
 $entry_stmt->execute();
@@ -26,7 +25,6 @@ if (!$entry) {
     die("Journal entry not found.");
 }
 
-// Get entry items
 $items_stmt = $conn->prepare("
     SELECT jei.*, coa.account_code, coa.account_name 
     FROM scs_journal_entry_items jei
@@ -51,10 +49,17 @@ $items_result = $items_stmt->get_result();
         <a href="journal_entries.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
             &larr; Back to Journal
         </a>
-        <?php if (check_permission('Accounts', 'edit') && !$entry['source_document']): ?>
-        <a href="edit_journal_entry.php?id=<?php echo $entry['id']; ?>" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-sm hover:bg-indigo-700">
-            Edit Entry
-        </a>
+        <?php if (!$entry['source_document'] || $entry['source_document'] === 'Manual Entry'): ?>
+            <?php if (check_permission('Accounts', 'edit')): ?>
+            <a href="edit_journal_entry.php?id=<?php echo $entry['id']; ?>" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-sm hover:bg-indigo-700">
+                Edit Entry
+            </a>
+            <?php endif; ?>
+             <?php if (check_permission('Accounts', 'delete')): ?>
+            <a href="delete_journal_entry.php?id=<?php echo $entry['id']; ?>" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700" onclick="return confirm('Are you sure you want to delete this manual entry? This action cannot be undone.');">
+                Delete
+            </a>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -81,7 +86,13 @@ $items_result = $items_stmt->get_result();
                 </tr>
             </thead>
             <tbody>
-                <?php while($item = $items_result->fetch_assoc()): ?>
+                <?php 
+                    $total_debit = 0;
+                    $total_credit = 0;
+                    while($item = $items_result->fetch_assoc()): 
+                    $total_debit += $item['debit_amount'];
+                    $total_credit += $item['credit_amount'];
+                ?>
                 <tr class="bg-white/50 border-b border-gray-200/50">
                     <td class="px-6 py-4 font-mono"><?php echo htmlspecialchars($item['account_code']); ?></td>
                     <td class="px-6 py-4 font-semibold"><?php echo htmlspecialchars($item['account_name']); ?></td>
@@ -90,6 +101,13 @@ $items_result = $items_stmt->get_result();
                 </tr>
                 <?php endwhile; ?>
             </tbody>
+            <tfoot class="font-bold">
+                <tr class="border-t-2 border-gray-300">
+                    <td colspan="2" class="px-6 py-3 text-right">Totals</td>
+                    <td class="px-6 py-3 text-right font-mono"><?php echo number_format($total_debit, 2); ?></td>
+                    <td class="px-6 py-3 text-right font-mono"><?php echo number_format($total_credit, 2); ?></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>

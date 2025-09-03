@@ -52,8 +52,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $prod_stmt = $conn->prepare("SELECT product_name FROM scs_products WHERE id = ?");
                     $prod_stmt->bind_param("i", $product_id);
                     $prod_stmt->execute();
-                    $product_name = $prod_stmt->get_result()->fetch_assoc()['product_name'];
+                    $product_name_res = $prod_stmt->get_result()->fetch_assoc();
+                    $product_name = $product_name_res ? $product_name_res['product_name'] : 'Unknown Product';
                     $prod_stmt->close();
+                    
                     $line_total = $unit_price * $quantity;
                     $subtotal += $line_total;
                     $recalculated_line_items[] = ['product_id' => $product_id, 'product_name' => $product_name, 'quantity' => $quantity, 'unit_price' => $unit_price, 'line_total' => $line_total];
@@ -63,61 +65,78 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $tax_amount = 0.00;
         $total_amount = $subtotal + $tax_amount;
         
-        // --- HASH CALCULATION AND DUPLICATE CHECK ---
         usort($recalculated_line_items, function($a, $b) {
             return $a['product_id'] <=> $b['product_id'];
         });
         $items_hash = md5(json_encode($recalculated_line_items));
         
         $statuses_that_affect_inventory = ['Confirmed', 'Processing', 'Shipped', 'Completed'];
+        
+        // --- INVENTORY CHECK ---
         if (in_array($status, $statuses_that_affect_inventory)) {
             if(empty($location_id)) { throw new Exception("Please select a 'Sell From Location' to confirm the order."); }
             foreach ($recalculated_line_items as $item) {
+                // Get current stock
                 $stock_stmt = $conn->prepare("SELECT quantity FROM scs_inventory WHERE product_id = ? AND location_id = ?");
                 $stock_stmt->bind_param("ii", $item['product_id'], $location_id);
                 $stock_stmt->execute();
                 $stock_result = $stock_stmt->get_result()->fetch_assoc();
                 $available_stock = $stock_result['quantity'] ?? 0;
-                if ($available_stock < $item['quantity']) { throw new Exception("Not enough stock for product '{$item['product_name']}'. Available: {$available_stock}, Ordered: {$item['quantity']}."); }
+                $stock_stmt->close();
+                
+                if ($available_stock < $item['quantity']) {
+                    throw new Exception("Not enough stock for product '{$item['product_name']}'. Available: {$available_stock}, Ordered: {$item['quantity']}.");
+                }
             }
         }
 
         if ($order_id_post > 0) {
             // UPDATE LOGIC
+            // NOTE: Inventory adjustment on update is complex and should be handled by a separate "fulfill order" process.
+            // This form will primarily update order details.
             $order_id_to_update = $order_id_post;
             $stmt_order = $conn->prepare("UPDATE scs_sales_orders SET customer_id=?, contact_id=?, location_id=?, order_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, items_hash=?, notes=? WHERE id=?");
             $stmt_order->bind_param("iiisssddssi", $customer_id, $contact_id, $location_id, $order_date, $status, $subtotal, $tax_amount, $total_amount, $items_hash, $notes, $order_id_to_update);
             $stmt_order->execute();
+
             $conn->query("DELETE FROM scs_sales_order_items WHERE sales_order_id = $order_id_to_update");
             $stmt_items = $conn->prepare("INSERT INTO scs_sales_order_items (sales_order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
-            foreach ($recalculated_line_items as $item) { $stmt_items->bind_param("iiidd", $order_id_to_update, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']); $stmt_items->execute(); }
+            foreach ($recalculated_line_items as $item) { 
+                $stmt_items->bind_param("iiidd", $order_id_to_update, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']);
+                $stmt_items->execute(); 
+            }
             $stmt_items->close();
             log_activity('SALES_ORDER_UPDATED', "Updated sales order ID: " . $order_id_to_update, $conn);
             $redirect_url = "sales-orders.php?success=updated";
         } else {
             // CREATE LOGIC
-            // Check for a duplicate before creating
-            $dupe_check_stmt = $conn->prepare("SELECT order_number FROM scs_sales_orders WHERE customer_id = ? AND items_hash = ? AND status != 'Cancelled'");
-            $dupe_check_stmt->bind_param("is", $customer_id, $items_hash);
-            $dupe_check_stmt->execute();
-            $dupe_result = $dupe_check_stmt->get_result();
-            if ($dupe_result->num_rows > 0) {
-                $existing_order = $dupe_result->fetch_assoc();
-                throw new Exception("A duplicate sales order ({$existing_order['order_number']}) already exists with these exact items for this customer.");
-            }
-
             $placeholder_order_number = "TEMP-" . time() . "-" . $created_by;
             $stmt_order = $conn->prepare("INSERT INTO scs_sales_orders (order_number, customer_id, contact_id, location_id, order_date, status, subtotal, tax_amount, total_amount, items_hash, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt_order->bind_param("siiisssddssi", $placeholder_order_number, $customer_id, $contact_id, $location_id, $order_date, $status, $subtotal, $tax_amount, $total_amount, $items_hash, $notes, $created_by);
             $stmt_order->execute();
             $new_sales_order_id = $conn->insert_id;
             $stmt_order->close();
+
             $order_number = 'SO-' . date('Y') . '-' . str_pad($new_sales_order_id, 5, '0', STR_PAD_LEFT);
             $conn->query("UPDATE scs_sales_orders SET order_number = '$order_number' WHERE id = $new_sales_order_id");
+
             $stmt_items = $conn->prepare("INSERT INTO scs_sales_order_items (sales_order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
-            foreach ($recalculated_line_items as $item) { $stmt_items->bind_param("iiidd", $new_sales_order_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']); $stmt_items->execute(); }
+            foreach ($recalculated_line_items as $item) { 
+                $stmt_items->bind_param("iiidd", $new_sales_order_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']);
+                $stmt_items->execute(); 
+            }
             $stmt_items->close();
             log_activity('SALES_ORDER_CREATED', "Created new sales order: " . $order_number, $conn);
+            
+            // --- DEDUCT INVENTORY ON CREATE IF APPLICABLE ---
+            if (in_array($status, $statuses_that_affect_inventory)) {
+                $update_stock_stmt = $conn->prepare("UPDATE scs_inventory SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?");
+                foreach ($recalculated_line_items as $item) { 
+                    $update_stock_stmt->bind_param("iii", $item['quantity'], $item['product_id'], $location_id);
+                    $update_stock_stmt->execute(); 
+                }
+                $update_stock_stmt->close();
+            }
             
             if ($is_invoice_mode_post) {
                 $redirect_url = "generate-invoice.php?id=" . $new_sales_order_id;
@@ -126,12 +145,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
         
-        if (in_array($status, $statuses_that_affect_inventory)) {
-            $update_stock_stmt = $conn->prepare("UPDATE scs_inventory SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?");
-            foreach ($recalculated_line_items as $item) { $update_stock_stmt->bind_param("iii", $item['quantity'], $item['product_id'], $location_id); $update_stock_stmt->execute(); }
-            $update_stock_stmt->close();
-        }
-
         $conn->commit();
         header("Location: " . $redirect_url);
         exit();

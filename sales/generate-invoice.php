@@ -39,6 +39,7 @@ try {
         throw new Exception("Sales order not found.");
     }
 
+    // UPDATED QUERY: Fetch the current cost_price (WAC) from the products table
     $items_stmt = $conn->prepare("
         SELECT soi.*, p.cost_price 
         FROM scs_sales_order_items soi
@@ -68,29 +69,31 @@ try {
     $invoice_number = 'INV-' . date('Y') . '-' . str_pad($new_invoice_id, 5, '0', STR_PAD_LEFT);
     $conn->query("UPDATE scs_invoices SET invoice_number = '$invoice_number' WHERE id = $new_invoice_id");
 
-    // Step 4: Copy items and calculate total cost of goods sold (COGS)
+    // Step 4: Copy items and calculate total cost of goods sold (COGS) using the fetched WAC
     $stmt_items = $conn->prepare("INSERT INTO scs_invoice_items (invoice_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
     $total_cogs = 0;
-    $items_result->data_seek(0); // Rewind result set
-    while ($item = $items_result->fetch_assoc()) {
+    $items_data = $items_result->fetch_all(MYSQLI_ASSOC); // Fetch all items into an array
+    foreach ($items_data as $item) {
         $stmt_items->bind_param("iiidd", $new_invoice_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['line_total']);
         $stmt_items->execute();
+        // Use the fetched cost_price (WAC) for COGS calculation
         $total_cogs += $item['quantity'] * $item['cost_price'];
     }
     $stmt_items->close();
 
-    // Step 5: Create the journal entry for the sale
-    $je_description = "Sale on credit - Invoice " . $invoice_number;
-    $debits = [
-        ['account_id' => 3, 'amount' => $order['total_amount']], // Debit Accounts Receivable
-        ['account_id' => 6, 'amount' => $total_cogs]             // Debit Cost of Goods Sold
-    ];
-    $credits = [
-        ['account_id' => 5, 'amount' => $order['total_amount']], // Credit Sales Revenue
-        ['account_id' => 4, 'amount' => $total_cogs]             // **FIXED**: Credit Inventory Asset
-    ];
-    create_journal_entry($conn, $invoice_date, $je_description, $debits, $credits, 'Invoice', $new_invoice_id);
+    // Step 5: Create the journal entry for the sale (Revenue and AR)
+    $je_description_revenue = "Sale on credit - Invoice " . $invoice_number;
+    // Account IDs: 3=AR, 6=Sales Revenue
+    $debits_revenue = [ ['account_id' => 3, 'amount' => $order['total_amount']] ];
+    $credits_revenue = [ ['account_id' => 6, 'amount' => $order['total_amount']] ];
+    create_journal_entry($conn, $invoice_date, $je_description_revenue, $debits_revenue, $credits_revenue, 'Invoice', $new_invoice_id);
 
+    // Step 6: Create the journal entry for the Cost of Goods Sold using WAC
+    $je_description_cogs = "Cost of Goods Sold for Invoice " . $invoice_number;
+    // Account IDs: 7=COGS, 4=Inventory Asset
+    $debits_cogs = [ ['account_id' => 7, 'amount' => $total_cogs] ];
+    $credits_cogs = [ ['account_id' => 4, 'amount' => $total_cogs] ];
+    create_journal_entry($conn, $invoice_date, $je_description_cogs, $debits_cogs, $credits_cogs, 'Invoice', $new_invoice_id);
 
     $conn->commit();
     log_activity('INVOICE_GENERATED', "Generated invoice {$invoice_number} from Sales Order {$order['order_number']}", $conn);

@@ -50,8 +50,29 @@ if (!$account) {
     die("Account not found.");
 }
 
-// Fetch all other accounts for the parent dropdown, excluding the current one
-$all_accounts_result = $conn->query("SELECT id, account_name, account_code FROM scs_chart_of_accounts WHERE id != $account_id ORDER BY account_code ASC");
+// Fetch all accounts to build the parent dropdown
+$all_accounts_result = $conn->query("SELECT id, parent_id, account_name, account_code FROM scs_chart_of_accounts ORDER BY account_code ASC");
+$all_accounts = [];
+while ($row = $all_accounts_result->fetch_assoc()) {
+    $all_accounts[$row['id']] = $row;
+}
+
+// --- LOGIC TO PREVENT CIRCULAR REFERENCES ---
+// Function to get all descendant IDs of a given account
+function get_all_descendant_ids($account_id, $all_accounts) {
+    $descendants = [];
+    foreach ($all_accounts as $acc) {
+        if ($acc['parent_id'] == $account_id) {
+            $descendants[] = $acc['id'];
+            // Recursively get children of this child
+            $descendants = array_merge($descendants, get_all_descendant_ids($acc['id'], $all_accounts));
+        }
+    }
+    return $descendants;
+}
+
+$forbidden_parent_ids = get_all_descendant_ids($account_id, $all_accounts);
+$forbidden_parent_ids[] = $account_id; // An account cannot be its own parent
 
 ?>
 
@@ -92,11 +113,13 @@ $all_accounts_result = $conn->query("SELECT id, account_name, account_code FROM 
         <div>
             <label for="parent_id" class="block text-sm font-medium text-gray-700">Parent Account</label>
             <select name="parent_id" id="parent_id" class="form-input mt-1 block w-full rounded-md p-3">
-                <option value="">None</option>
-                <?php while($acc = $all_accounts_result->fetch_assoc()): ?>
-                    <option value="<?php echo $acc['id']; ?>" <?php if ($account['parent_id'] == $acc['id']) echo 'selected'; ?>>
-                        <?php echo htmlspecialchars($acc['account_code'] . ' - ' . $acc['account_name']); ?>
-                    </option>
+                <option value="">None (Top-Level Account)</option>
+                <?php foreach ($all_accounts as $acc): ?>
+                    <?php if (!in_array($acc['id'], $forbidden_parent_ids)): ?>
+                        <option value="<?php echo $acc['id']; ?>" <?php if ($account['parent_id'] == $acc['id']) echo 'selected'; ?>>
+                            <?php echo htmlspecialchars($acc['account_code'] . ' - ' . $acc['account_name']); ?>
+                        </option>
+                    <?php endif; ?>
                 <?php endwhile; ?>
             </select>
         </div>
@@ -110,12 +133,7 @@ $all_accounts_result = $conn->query("SELECT id, account_name, account_code FROM 
                 <span class="ml-2 text-sm text-gray-700">Active</span>
             </label>
         </div>
-        <div class="flex justify-between items-center pt-2">
-            <a href="delete_account.php?id=<?php echo $account_id; ?>" 
-               onclick="return confirm('Are you sure you want to permanently delete this account? This action cannot be undone.');" 
-               class="inline-flex justify-center py-2 px-4 rounded-md text-white bg-red-600 hover:bg-red-700">
-                Delete Account
-            </a>
+        <div class="flex justify-end items-center pt-4 border-t border-gray-200/50">
             <button type="submit" class="inline-flex justify-center py-2 px-4 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
                 Update Account
             </button>

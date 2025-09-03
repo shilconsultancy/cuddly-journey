@@ -99,15 +99,6 @@ $page_title = "Dashboard - " . ($app_config['company_name'] ?? 'BizManager');
     </a>
     <?php endif; ?>
 
-    <?php // --- PERMISSION CHECK for Marketing ---
-    if (check_permission('Marketing', 'view')): ?>
-    <a href="marketing/" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
-        <div class="p-4 bg-teal-100/50 rounded-full mb-4 backdrop-blur-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-        </div>
-        <h3 class="text-md font-semibold text-gray-800">Marketing</h3>
-    </a>
-    <?php endif; ?>
 
     <?php // --- PERMISSION CHECK for CRM ---
     if (check_permission('CRM', 'view')): ?>
@@ -143,17 +134,6 @@ $page_title = "Dashboard - " . ($app_config['company_name'] ?? 'BizManager');
     </a>
     <?php endif; ?>
 
-    <?php // --- PERMISSION CHECK for Projects ---
-    if (check_permission('Projects', 'view')): ?>
-    <a href="projects/" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
-        <div class="p-4 bg-fuchsia-100/50 rounded-full mb-4 backdrop-blur-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-fuchsia-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-        </div>
-        <h3 class="text-md font-semibold text-gray-800">Projects</h3>
-    </a>
-    <?php endif; ?>
 
     <?php // --- PERMISSION CHECK for Communication ---
     if (check_permission('Communication', 'view')): ?>

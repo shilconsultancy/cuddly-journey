@@ -14,6 +14,10 @@ $page_title = "New Purchase Order - BizManager";
 $message = '';
 $message_type = '';
 
+// Data scope variables for filtering dropdowns
+$has_global_scope = ($_SESSION['data_scope'] ?? 'Local') === 'Global';
+$user_location_id = $_SESSION['location_id'] ?? null;
+
 // --- FORM PROCESSING: CREATE PURCHASE ORDER ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create_po'])) {
     $supplier_id = $_POST['supplier_id'];
@@ -65,9 +69,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create_po'])) {
             }
             
             $conn->commit();
-            $message = "Purchase Order " . htmlspecialchars($po_number) . " created successfully!";
-            $message_type = 'success';
-            log_activity('PO_CREATED', "Created Purchase Order: " . $po_number, $conn);
+            header("Location: purchase-orders.php?success=created");
+            exit();
 
         } catch (Exception $e) {
             $conn->rollback();
@@ -79,14 +82,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create_po'])) {
 
 // --- DATA FETCHING for the page ---
 $suppliers_result = $conn->query("SELECT id, supplier_name FROM scs_suppliers ORDER BY supplier_name ASC");
-$locations_result = $conn->query("SELECT id, location_name FROM scs_locations ORDER BY location_name ASC");
 $products_result = $conn->query("SELECT id, product_name, sku, cost_price FROM scs_products ORDER BY product_name ASC");
 
+$location_sql = "SELECT id, location_name FROM scs_locations";
+if (!$has_global_scope && $user_location_id) {
+    $location_sql .= " WHERE id = " . (int)$user_location_id;
+}
+$location_sql .= " ORDER BY location_name ASC";
+$locations_result = $conn->query($location_sql);
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-semibold text-gray-800">New Purchase Order</h2>
     <a href="index.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
@@ -157,8 +164,7 @@ $products_result = $conn->query("SELECT id, product_name, sku, cost_price FROM s
                     </tr>
                 </thead>
                 <tbody id="po-items-container">
-                    <!-- PO items will be added here by JavaScript -->
-                </tbody>
+                    </tbody>
                 <tfoot class="text-gray-800 font-semibold">
                     <tr>
                         <td colspan="3" class="text-right px-4 py-2">Total Amount:</td>
