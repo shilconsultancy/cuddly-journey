@@ -47,9 +47,15 @@ $reconciliations_result = $conn->query("
                         <?php endwhile; ?>
                     </select>
                 </div>
-                <div>
-                    <label for="statement_date" class="block text-sm font-medium text-gray-700">Statement End Date</label>
-                    <input type="date" name="statement_date" id="statement_date" value="<?php echo date('Y-m-d'); ?>" class="form-input mt-1 block w-full p-2" required>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="statement_start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
+                        <input type="date" name="statement_start_date" id="statement_start_date" value="<?php echo date('Y-m-01'); ?>" class="form-input mt-1 block w-full p-2" required>
+                    </div>
+                    <div>
+                        <label for="statement_date" class="block text-sm font-medium text-gray-700">End Date</label>
+                        <input type="date" name="statement_date" id="statement_date" value="<?php echo date('Y-m-t'); ?>" class="form-input mt-1 block w-full p-2" required>
+                    </div>
                 </div>
                  <div>
                     <label for="statement_balance" class="block text-sm font-medium text-gray-700">Ending Balance from Statement</label>
