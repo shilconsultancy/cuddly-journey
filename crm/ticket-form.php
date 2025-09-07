@@ -51,8 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $success_message = "updated";
 
             } else {
-                // --- CREATE LOGIC ---
-                // NEW: Duplicate Check
+                // --- FIX: DUPLICATE TICKET CHECK ---
                 $dupe_check_stmt = $conn->prepare("SELECT ticket_number FROM scs_support_tickets WHERE customer_id = ? AND subject = ? AND status IN ('Open', 'In Progress')");
                 $dupe_check_stmt->bind_param("is", $customer_id, $subject);
                 $dupe_check_stmt->execute();
@@ -61,7 +60,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $existing_ticket = $dupe_result->fetch_assoc();
                     throw new Exception("An active ticket ({$existing_ticket['ticket_number']}) with the same subject already exists for this customer.");
                 }
+                // --- END FIX ---
 
+                // --- CREATE LOGIC ---
                 $created_by = $_SESSION['user_id'];
                 $placeholder_ticket_number = 'TEMP-' . time();
                 $stmt = $conn->prepare("INSERT INTO scs_support_tickets (ticket_number, customer_id, contact_id, subject, description, status, priority, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");

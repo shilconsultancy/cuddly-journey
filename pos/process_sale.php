@@ -100,11 +100,11 @@ try {
     $credits_revenue = [ ['account_id' => 6, 'amount' => $total_amount] ];
     create_journal_entry($conn, date('Y-m-d'), $je_description_revenue, $debits_revenue, $credits_revenue, 'POS Sale', $payment_id);
 
-    // 7. Create Journal Entry for Cost of Goods Sold
+    // 7. --- FIX: Create Journal Entry for Cost of Goods Sold ---
     $je_description_cogs = "Cost of Goods Sold for POS Invoice " . $invoice_number;
-    // Account IDs: 7=COGS, 4=Inventory Asset
+    // Account IDs: 7=COGS, 5=Inventory Asset
     $debits_cogs = [ ['account_id' => 7, 'amount' => $total_cogs] ];
-    $credits_cogs = [ ['account_id' => 4, 'amount' => $total_cogs] ];
+    $credits_cogs = [ ['account_id' => 5, 'amount' => $total_cogs] ];
     create_journal_entry($conn, date('Y-m-d'), $je_description_cogs, $debits_cogs, $credits_cogs, 'POS Sale', $payment_id);
 
     $conn->commit();

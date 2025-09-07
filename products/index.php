@@ -43,19 +43,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && check_permission('Products', 'create
             }
             $stmt->close();
         } else {
-            // --- ADD new product ---
-            $created_by = $_SESSION['user_id'];
-            $stmt = $conn->prepare("INSERT INTO scs_products (product_name, sku, description, cost_price, selling_price, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssddi", $product_name, $sku, $description, $cost_price, $selling_price, $created_by);
-            if ($stmt->execute()) {
-                log_activity('PRODUCT_CREATED', "Created new product: " . $product_name, $conn);
-                $message = "Product added successfully!";
-                $message_type = 'success';
+            // --- FIX: DUPLICATE SKU CHECK ---
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_products WHERE sku = ?");
+            $dupe_check_stmt->bind_param("s", $sku);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                 $message = "Error: A product with this SKU already exists.";
+                 $message_type = 'error';
             } else {
-                $message = "Error adding product: " . $stmt->error;
-                $message_type = 'error';
+                // --- ADD new product ---
+                $created_by = $_SESSION['user_id'];
+                $stmt = $conn->prepare("INSERT INTO scs_products (product_name, sku, description, cost_price, selling_price, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssddi", $product_name, $sku, $description, $cost_price, $selling_price, $created_by);
+                if ($stmt->execute()) {
+                    log_activity('PRODUCT_CREATED', "Created new product: " . $product_name, $conn);
+                    $message = "Product added successfully!";
+                    $message_type = 'success';
+                } else {
+                    $message = "Error adding product: " . $stmt->error;
+                    $message_type = 'error';
+                }
+                $stmt->close();
             }
-            $stmt->close();
+            $dupe_check_stmt->close();
         }
     }
 }

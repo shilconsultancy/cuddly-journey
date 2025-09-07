@@ -76,19 +76,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $stmt->close();
             }
         } elseif (check_permission('CRM', 'create')) {
-            // --- ADD new lead ---
-            $created_by = $_SESSION['user_id'];
-            $stmt = $conn->prepare("INSERT INTO scs_leads (lead_name, company_name, email, phone, source, status, assigned_to, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssssisi", $lead_name, $company_name, $email, $phone, $source, $status, $assigned_to, $notes, $created_by);
-            if ($stmt->execute()) {
-                log_activity('LEAD_CREATED', "Created new lead: " . $lead_name, $conn);
-                $message = "Lead added successfully!";
-                $message_type = 'success';
+            // --- FIX: DUPLICATE LEAD CHECK ---
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_leads WHERE lead_name = ? AND status != 'Converted'");
+            $dupe_check_stmt->bind_param("s", $lead_name);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                 $message = "Error: An active lead with this name already exists.";
+                 $message_type = 'error';
             } else {
-                $message = "Error adding lead: " . $stmt->error;
-                $message_type = 'error';
+                // --- ADD new lead ---
+                $created_by = $_SESSION['user_id'];
+                $stmt = $conn->prepare("INSERT INTO scs_leads (lead_name, company_name, email, phone, source, status, assigned_to, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssssisi", $lead_name, $company_name, $email, $phone, $source, $status, $assigned_to, $notes, $created_by);
+                if ($stmt->execute()) {
+                    log_activity('LEAD_CREATED', "Created new lead: " . $lead_name, $conn);
+                    $message = "Lead added successfully!";
+                    $message_type = 'success';
+                } else {
+                    $message = "Error adding lead: " . $stmt->error;
+                    $message_type = 'error';
+                }
+                $stmt->close();
             }
-            $stmt->close();
+            $dupe_check_stmt->close();
         }
     }
 }
@@ -220,8 +231,7 @@ $leads_result = $conn->query("
                         mysqli_data_seek($sales_users_result, 0);
                         while($user = $sales_users_result->fetch_assoc()): ?>
                             <option value="<?php echo $user['id']; ?>" <?php if (($lead_to_edit['assigned_to'] ?? '') == $user['id']) echo 'selected'; ?>>
-                                <?php // FINAL FIX: Added ?? '' to handle NULL user names
-                                echo htmlspecialchars($user['full_name'] ?? ''); ?>
+                                <?php echo htmlspecialchars($user['full_name'] ?? ''); ?>
                             </option>
                         <?php endwhile; ?>
                     </select>

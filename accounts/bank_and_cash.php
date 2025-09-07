@@ -21,17 +21,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && check_permission('Accounts', 'create
     // All accounts created here are of type 'Asset'
     $account_type = 'Asset';
 
-    $stmt = $conn->prepare("INSERT INTO scs_chart_of_accounts (account_name, account_code, account_type, description) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $account_name, $account_code, $account_type, $description);
-    
-    if ($stmt->execute()) {
-        $message = "Account created successfully!";
-        $message_type = 'success';
-    } else {
-        $message = "Error creating account: " . $stmt->error;
+    // --- FIX: DUPLICATE ACCOUNT CHECK ---
+    $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_chart_of_accounts WHERE account_name = ? OR account_code = ?");
+    $dupe_check_stmt->bind_param("ss", $account_name, $account_code);
+    $dupe_check_stmt->execute();
+    $dupe_result = $dupe_check_stmt->get_result();
+    if ($dupe_result->num_rows > 0) {
+        $message = "Error: An account with this name or code already exists in the Chart of Accounts.";
         $message_type = 'error';
+    } else {
+        $stmt = $conn->prepare("INSERT INTO scs_chart_of_accounts (account_name, account_code, account_type, description) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $account_name, $account_code, $account_type, $description);
+        
+        if ($stmt->execute()) {
+            $message = "Account created successfully!";
+            $message_type = 'success';
+        } else {
+            $message = "Error creating account: " . $stmt->error;
+            $message_type = 'error';
+        }
+        $stmt->close();
     }
-    $stmt->close();
+    $dupe_check_stmt->close();
 }
 
 

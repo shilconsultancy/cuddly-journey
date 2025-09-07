@@ -19,16 +19,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && check_permission('Accounts', 'create
         $description = trim($_POST['description']);
         $created_by = $_SESSION['user_id'];
 
-        $stmt = $conn->prepare("INSERT INTO scs_budgets (budget_name, fiscal_year, description, created_by) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("sisi", $budget_name, $fiscal_year, $description, $created_by);
-        if ($stmt->execute()) {
-            $new_budget_id = $conn->insert_id;
-            header("Location: budget_details.php?id=" . $new_budget_id);
-            exit();
-        } else {
-            $message = "Error creating budget: " . $stmt->error;
+        // --- FIX: DUPLICATE BUDGET CHECK ---
+        $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_budgets WHERE budget_name = ? AND fiscal_year = ?");
+        $dupe_check_stmt->bind_param("si", $budget_name, $fiscal_year);
+        $dupe_check_stmt->execute();
+        $dupe_result = $dupe_check_stmt->get_result();
+        if ($dupe_result->num_rows > 0) {
+            $message = "Error: A budget with this name already exists for the selected fiscal year.";
             $message_type = 'error';
+        } else {
+            $stmt = $conn->prepare("INSERT INTO scs_budgets (budget_name, fiscal_year, description, created_by) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("sisi", $budget_name, $fiscal_year, $description, $created_by);
+            if ($stmt->execute()) {
+                $new_budget_id = $conn->insert_id;
+                header("Location: budget_details.php?id=" . $new_budget_id);
+                exit();
+            } else {
+                $message = "Error creating budget: " . $stmt->error;
+                $message_type = 'error';
+            }
+            $stmt->close();
         }
+        $dupe_check_stmt->close();
     }
 }
 

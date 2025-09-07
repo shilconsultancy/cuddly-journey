@@ -43,17 +43,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             $stmt->close();
         } else {
-            // --- ADD new method ---
-            $stmt = $conn->prepare("INSERT INTO scs_payment_methods (method_name, method_type, is_active) VALUES (?, ?, ?)");
-            $stmt->bind_param("ssi", $method_name, $method_type, $is_active);
-            if ($stmt->execute()) {
-                $message = "Payment method added successfully!";
-                $message_type = 'success';
-            } else {
-                $message = "Error adding method: " . $stmt->error;
+            // --- FIX: DUPLICATE PAYMENT METHOD CHECK ---
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_payment_methods WHERE method_name = ?");
+            $dupe_check_stmt->bind_param("s", $method_name);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                $message = "Error: A payment method with this name already exists.";
                 $message_type = 'error';
+            } else {
+                // --- ADD new method ---
+                $stmt = $conn->prepare("INSERT INTO scs_payment_methods (method_name, method_type, is_active) VALUES (?, ?, ?)");
+                $stmt->bind_param("ssi", $method_name, $method_type, $is_active);
+                if ($stmt->execute()) {
+                    $message = "Payment method added successfully!";
+                    $message_type = 'success';
+                } else {
+                    $message = "Error adding method: " . $stmt->error;
+                    $message_type = 'error';
+                }
+                $stmt->close();
             }
-            $stmt->close();
+            $dupe_check_stmt->close();
         }
     }
 }

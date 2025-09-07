@@ -37,17 +37,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             $stmt->close();
         } else {
-            // --- ADD new location ---
-            $stmt = $conn->prepare("INSERT INTO scs_locations (location_name, location_type, address, phone, manager_id) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssi", $location_name, $location_type, $address, $phone, $manager_id);
-            if ($stmt->execute()) {
-                $message = "Location added successfully!";
-                $message_type = 'success';
-            } else {
-                $message = "Error adding location: " . $stmt->error;
+            // --- FIX: DUPLICATE LOCATION CHECK ---
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_locations WHERE location_name = ?");
+            $dupe_check_stmt->bind_param("s", $location_name);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                $message = "Error: A location with this name already exists.";
                 $message_type = 'error';
+            } else {
+                // --- ADD new location ---
+                $stmt = $conn->prepare("INSERT INTO scs_locations (location_name, location_type, address, phone, manager_id) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssi", $location_name, $location_type, $address, $phone, $manager_id);
+                if ($stmt->execute()) {
+                    $message = "Location added successfully!";
+                    $message_type = 'success';
+                } else {
+                    $message = "Error adding location: " . $stmt->error;
+                    $message_type = 'error';
+                }
+                $stmt->close();
             }
-            $stmt->close();
+            $dupe_check_stmt->close();
         }
     }
 }
@@ -115,7 +126,6 @@ $managers_result = $conn->query("
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-semibold text-gray-800">Manage Locations</h2>
     <a href="index.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
@@ -124,7 +134,6 @@ $managers_result = $conn->query("
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Add/Edit Location Form -->
     <div class="lg:col-span-1">
         <div class="glass-card p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4"><?php echo $edit_mode ? 'Edit Location' : 'Add New Location'; ?></h3>
@@ -175,7 +184,6 @@ $managers_result = $conn->query("
         </div>
     </div>
 
-    <!-- Locations List -->
     <div class="lg:col-span-2">
         <div class="glass-card p-6">
             <?php if (!empty($message)): ?>

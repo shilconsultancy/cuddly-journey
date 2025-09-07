@@ -29,6 +29,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && check_permission('Accounts', 'create
         if (empty($asset_name) || empty($acquisition_date) || $acquisition_cost <= 0 || $useful_life_years <= 0) {
             throw new Exception("Asset Name, Acquisition Date, Cost, and Useful Life are required.");
         }
+        
+        // --- FIX: DUPLICATE ASSET CODE CHECK ---
+        if (!empty($asset_code)) {
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_fixed_assets WHERE asset_code = ?");
+            $dupe_check_stmt->bind_param("s", $asset_code);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                throw new Exception("An asset with this code/tag already exists.");
+            }
+            $dupe_check_stmt->close();
+        }
+        // --- END FIX ---
 
         $stmt_asset = $conn->prepare("INSERT INTO scs_fixed_assets (asset_name, asset_code, location_id, acquisition_date, acquisition_cost, depreciation_method, useful_life_years, salvage_value, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt_asset->bind_param("ssisdsidi", $asset_name, $asset_code, $location_id, $acquisition_date, $acquisition_cost, $depreciation_method, $useful_life_years, $salvage_value, $created_by);

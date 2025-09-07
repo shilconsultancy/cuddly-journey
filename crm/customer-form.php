@@ -59,6 +59,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 log_activity('CUSTOMER_UPDATED', "Updated customer: " . $customer_name, $conn);
                 $success_message = "Customer updated successfully!";
             } else {
+                // --- FIX: DUPLICATE CUSTOMER CHECK ---
+                $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_customers WHERE customer_name = ? AND is_active = 1");
+                $dupe_check_stmt->bind_param("s", $customer_name);
+                $dupe_check_stmt->execute();
+                $dupe_result = $dupe_check_stmt->get_result();
+                if ($dupe_result->num_rows > 0) {
+                    throw new Exception("An active customer with this exact name already exists.");
+                }
+                // --- END FIX ---
+
                 // CREATE LOGIC
                 $created_by = $_SESSION['user_id'];
                 $stmt = $conn->prepare("INSERT INTO scs_customers (customer_name, customer_type, email, phone, address, created_by) VALUES (?, ?, ?, ?, ?, ?)");
@@ -87,7 +97,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $success_message = "Customer and corresponding lead created successfully!";
             }
             $conn->commit();
-            // This is Line 100 - it will now execute before any HTML is sent.
             header("Location: customers.php?success=" . urlencode($success_message));
             exit();
         } catch (Exception $e) {

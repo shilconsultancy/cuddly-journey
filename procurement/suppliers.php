@@ -41,18 +41,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             $stmt->close();
         } elseif (check_permission('Procurement', 'create')) {
-            $created_by = $_SESSION['user_id'];
-            $stmt = $conn->prepare("INSERT INTO scs_suppliers (supplier_name, contact_person, email, phone, address, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssi", $supplier_name, $contact_person, $email, $phone, $address, $created_by);
-            if ($stmt->execute()) {
-                log_activity('SUPPLIER_CREATED', "Created new supplier: " . $supplier_name, $conn);
-                $message = "Supplier added successfully!";
-                $message_type = 'success';
-            } else {
-                $message = "Error adding supplier: " . $stmt->error;
+            // --- FIX: DUPLICATE SUPPLIER CHECK ---
+            $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_suppliers WHERE supplier_name = ?");
+            $dupe_check_stmt->bind_param("s", $supplier_name);
+            $dupe_check_stmt->execute();
+            $dupe_result = $dupe_check_stmt->get_result();
+            if ($dupe_result->num_rows > 0) {
+                $message = "Error: A supplier with this name already exists.";
                 $message_type = 'error';
+            } else {
+                $created_by = $_SESSION['user_id'];
+                $stmt = $conn->prepare("INSERT INTO scs_suppliers (supplier_name, contact_person, email, phone, address, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssssi", $supplier_name, $contact_person, $email, $phone, $address, $created_by);
+                if ($stmt->execute()) {
+                    log_activity('SUPPLIER_CREATED', "Created new supplier: " . $supplier_name, $conn);
+                    $message = "Supplier added successfully!";
+                    $message_type = 'success';
+                } else {
+                    $message = "Error adding supplier: " . $stmt->error;
+                    $message_type = 'error';
+                }
+                $stmt->close();
             }
-            $stmt->close();
+            $dupe_check_stmt->close();
         }
     }
 }
@@ -94,7 +105,6 @@ $suppliers_result = $conn->query("SELECT * FROM scs_suppliers ORDER BY supplier_
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
-<!-- Page Header -->
 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
     <div>
         <h2 class="text-2xl font-semibold text-gray-800">Manage Suppliers</h2>
@@ -106,7 +116,6 @@ $suppliers_result = $conn->query("SELECT * FROM scs_suppliers ORDER BY supplier_
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Add/Edit Supplier Form -->
     <?php if (check_permission('Procurement', 'create') || check_permission('Procurement', 'edit')): ?>
     <div class="lg:col-span-1">
         <div class="glass-card p-6">
@@ -148,7 +157,6 @@ $suppliers_result = $conn->query("SELECT * FROM scs_suppliers ORDER BY supplier_
     </div>
     <?php endif; ?>
 
-    <!-- Suppliers List -->
     <div class="<?php echo (check_permission('Procurement', 'create') || check_permission('Procurement', 'edit')) ? 'lg:col-span-2' : 'lg:col-span-3'; ?>">
         <div class="glass-card p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Supplier List</h3>

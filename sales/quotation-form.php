@@ -65,8 +65,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // --- UPDATE LOGIC ---
             $quote_id_to_update = $quote_id_post;
             $stmt_quote = $conn->prepare("UPDATE scs_quotations SET customer_id=?, contact_id=?, quote_date=?, expiry_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, items_hash=?, notes=? WHERE id=?");
-            
-            // FIX: Corrected the bind_param type string to include the type for contact_id (11 characters for 11 variables)
             $stmt_quote->bind_param("iisssddsssi", $customer_id, $contact_id, $quote_date, $expiry_date, $status, $subtotal, $tax_amount, $total_amount, $items_hash, $notes, $quote_id_to_update);
             $stmt_quote->execute();
 
@@ -80,7 +78,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             log_activity('QUOTATION_UPDATED', "Updated quotation ID: " . $quote_id_to_update, $conn);
             $success_message = "updated";
         } else {
-            // --- CREATE LOGIC ---
+            // --- FIX: DUPLICATE QUOTATION CHECK ---
             $dupe_check_stmt = $conn->prepare("SELECT quote_number FROM scs_quotations WHERE customer_id = ? AND items_hash = ? AND status IN ('Draft', 'Sent', 'Accepted')");
             $dupe_check_stmt->bind_param("is", $customer_id, $items_hash);
             $dupe_check_stmt->execute();
@@ -89,7 +87,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $existing_quote = $dupe_result->fetch_assoc();
                 throw new Exception("A duplicate quotation ({$existing_quote['quote_number']}) already exists with these exact items for this customer.");
             }
+            // --- END FIX ---
 
+            // --- CREATE LOGIC ---
             $placeholder_quote_number = "TEMP-" . time();
             $stmt_quote = $conn->prepare("INSERT INTO scs_quotations (quote_number, customer_id, contact_id, quote_date, expiry_date, status, subtotal, tax_amount, total_amount, items_hash, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt_quote->bind_param("siisssddsssi", $placeholder_quote_number, $customer_id, $contact_id, $quote_date, $expiry_date, $status, $subtotal, $tax_amount, $total_amount, $items_hash, $notes, $created_by);

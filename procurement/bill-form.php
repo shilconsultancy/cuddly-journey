@@ -26,6 +26,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (empty($supplier_id) || empty($bill_number) || empty($bill_date) || empty($due_date) || $total_amount <= 0) {
             throw new Exception("Please fill all required fields.");
         }
+        
+        // --- FIX: DUPLICATE BILL CHECK ---
+        $dupe_check_stmt = $conn->prepare("SELECT id FROM scs_supplier_bills WHERE supplier_id = ? AND bill_number = ?");
+        $dupe_check_stmt->bind_param("is", $supplier_id, $bill_number);
+        $dupe_check_stmt->execute();
+        $dupe_result = $dupe_check_stmt->get_result();
+        if ($dupe_result->num_rows > 0) {
+            throw new Exception("This bill number has already been entered for this supplier.");
+        }
+        $dupe_check_stmt->close();
+        // --- END FIX ---
 
         // 1. Insert the bill record
         $stmt = $conn->prepare("INSERT INTO scs_supplier_bills (supplier_id, po_id, bill_number, bill_date, due_date, total_amount, status, created_by) VALUES (?, ?, ?, ?, ?, ?, 'Unpaid', ?)");
@@ -36,8 +47,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // 2. Create the corresponding journal entry
         $je_description = "Record supplier bill #" . $bill_number . " from " . $_POST['supplier_name_hidden'];
         
-        // Account IDs: 4 = Inventory Asset, 8 = Purchases (Expense), 7 = Accounts Payable
-        $debit_account_id = $po_id ? 4 : 8;
+        // Account IDs: 8 = Purchases (Expense), 7 = Accounts Payable
+        $debit_account_id = 8; 
         
         $debits = [
             ['account_id' => $debit_account_id, 'amount' => $total_amount]

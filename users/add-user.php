@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $message = "Passwords do not match.";
         $message_type = 'error';
     } else {
-        // Check if email already exists
+        // --- FIX: DUPLICATE EMAIL CHECK ---
         $stmt_check = $conn->prepare("SELECT id FROM scs_users WHERE email = ?");
         $stmt_check->bind_param("s", $email);
         $stmt_check->execute();

@@ -48,6 +48,14 @@ $page_title = "Accounts Dashboard - BizManager";
         <p class="text-xs text-gray-500 mt-1">Manage bank accounts & cash.</p>
     </a>
     
+    <a href="bank_reconciliation.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-cyan-100/50 rounded-full mb-4 backdrop-blur-sm">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Bank Reconciliation</h3>
+        <p class="text-xs text-gray-500 mt-1">Match bank statements.</p>
+    </a>
+
     <a href="accounts_payable.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
         <div class="p-4 bg-red-100/50 rounded-full mb-4 backdrop-blur-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zM9 9l2-5 2 5-4 0z" transform="rotate(-45 12 12)"/></svg>

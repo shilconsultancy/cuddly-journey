@@ -84,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
                 }
             }
             
-            // Task 2: Auto-create the Supplier Bill (Logic remains the same)
+            // Task 2: Auto-create the Supplier Bill
             $bill_number = 'BILL-' . $po_for_processing['po_number'];
             $bill_date = date('Y-m-d');
             $due_date = date('Y-m-d', strtotime('+30 days'));
@@ -93,13 +93,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['receive_stock'])) {
             $stmt_bill->execute();
             $bill_id = $conn->insert_id;
 
-            // Task 3: Auto-create the Journal Entry for this bill (Logic remains the same)
+            // Task 3: Auto-create the Journal Entry for this bill
             $je_description = "Goods received against PO #" . $po_for_processing['po_number'];
-            $debits = [ ['account_id' => 4, 'amount' => $po_for_processing['total_amount']] ];
+            // --- FIX: Debit 'Purchases' (ID: 8) and Credit 'Accounts Payable' (ID: 7) ---
+            $debits = [ ['account_id' => 8, 'amount' => $po_for_processing['total_amount']] ];
             $credits = [ ['account_id' => 7, 'amount' => $po_for_processing['total_amount']] ];
             create_journal_entry($conn, $bill_date, $je_description, $debits, $credits, 'Supplier Bill', $bill_id);
 
-            // Task 4: Update PO status to 'Completed' (Logic remains the same)
+            // Task 4: Update PO status to 'Completed'
             $stmt_po_status = $conn->prepare("UPDATE scs_purchase_orders SET status = 'Completed' WHERE id = ?");
             $stmt_po_status->bind_param("i", $po_id);
             $stmt_po_status->execute();

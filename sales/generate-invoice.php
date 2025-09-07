@@ -83,16 +83,16 @@ try {
 
     // Step 5: Create the journal entry for the sale (Revenue and AR)
     $je_description_revenue = "Sale on credit - Invoice " . $invoice_number;
-    // Account IDs: 3=AR, 6=Sales Revenue
-    $debits_revenue = [ ['account_id' => 3, 'amount' => $order['total_amount']] ];
+    // Account IDs: 4=AR, 6=Sales Revenue
+    $debits_revenue = [ ['account_id' => 4, 'amount' => $order['total_amount']] ];
     $credits_revenue = [ ['account_id' => 6, 'amount' => $order['total_amount']] ];
     create_journal_entry($conn, $invoice_date, $je_description_revenue, $debits_revenue, $credits_revenue, 'Invoice', $new_invoice_id);
 
-    // Step 6: Create the journal entry for the Cost of Goods Sold using WAC
+    // Step 6: --- FIX: Create the journal entry for the Cost of Goods Sold using WAC ---
     $je_description_cogs = "Cost of Goods Sold for Invoice " . $invoice_number;
-    // Account IDs: 7=COGS, 4=Inventory Asset
+    // Account IDs: 7=COGS, 5=Inventory Asset
     $debits_cogs = [ ['account_id' => 7, 'amount' => $total_cogs] ];
-    $credits_cogs = [ ['account_id' => 4, 'amount' => $total_cogs] ];
+    $credits_cogs = [ ['account_id' => 5, 'amount' => $total_cogs] ];
     create_journal_entry($conn, $invoice_date, $je_description_cogs, $debits_cogs, $credits_cogs, 'Invoice', $new_invoice_id);
 
     $conn->commit();
