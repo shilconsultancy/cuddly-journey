@@ -5,7 +5,7 @@
 require_once __DIR__ . '/../config.php';
 
 // STEP 2: Perform ALL form processing and potential redirects BEFORE any HTML is sent.
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['save_settings'])) {
     // Handle checkboxes, as they won't be sent if unchecked
     $_POST['email_notifications_enabled'] = isset($_POST['email_notifications_enabled']) ? '1' : '0';
     $_POST['maintenance_mode'] = isset($_POST['maintenance_mode']) ? '1' : '0';
@@ -43,8 +43,17 @@ $message_type = '';
 
 // Check for a success message from the redirect
 if (isset($_GET['success'])) {
-    $message = "Configuration updated successfully!";
-    $message_type = 'success';
+    if ($_GET['success'] == 1) {
+        $message = "Configuration updated successfully!";
+        $message_type = 'success';
+    } elseif ($_GET['success'] == 'reset') {
+        $message = "Application data has been successfully reset!";
+        $message_type = 'success';
+    }
+}
+if (isset($_GET['error'])) {
+    $message = "An error occurred: " . htmlspecialchars($_GET['error']);
+    $message_type = 'error';
 }
 ?>
 
@@ -134,43 +143,6 @@ if (isset($_GET['success'])) {
             </div>
         </div>
 
-        <!-- System Admin Section -->
-        <div>
-            <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-300/50 pb-2 mb-4">System Administration</h3>
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Maintenance Mode</label>
-                    <div class="mt-2 p-4 bg-white/50 rounded-lg">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="maintenance_mode" value="1" 
-                                   class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
-                                   <?php if (!empty($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1') echo 'checked'; ?>>
-                            <span class="ml-3 text-sm text-gray-700">Enable Maintenance Mode (Only Super Admins can log in)</span>
-                        </label>
-                    </div>
-                </div>
-                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Error Logging</label>
-                    <div class="mt-2 p-4 bg-white/50 rounded-lg">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="error_logging_enabled" value="1" 
-                                   class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
-                                   <?php if (!empty($app_config['error_logging_enabled']) && $app_config['error_logging_enabled'] == '1') echo 'checked'; ?>>
-                            <span class="ml-3 text-sm text-gray-700">Enable Error Display (For debugging only. Disable on a live server.)</span>
-                        </label>
-                    </div>
-                </div>
-                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Database Backup</label>
-                    <div class="mt-2">
-                        <a href="../backup.php" class="inline-block px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-sm hover:bg-green-700 transition-colors">
-                            Download Database Backup
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Form Actions -->
         <div class="flex justify-end pt-8 border-t border-gray-200/50">
             <button type="submit" name="save_settings" class="inline-flex justify-center py-2 px-6 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
@@ -178,7 +150,83 @@ if (isset($_GET['success'])) {
             </button>
         </div>
     </form>
+
+    <!-- System Administration Section -->
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-300/50 pb-2 mb-4">System Administration</h3>
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Maintenance Mode</label>
+                <div class="mt-2 p-4 bg-white/50 rounded-lg">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="maintenance_mode" value="1" 
+                               class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
+                               <?php if (!empty($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1') echo 'checked'; ?>>
+                        <span class="ml-3 text-sm text-gray-700">Enable Maintenance Mode (Only Super Admins can log in)</span>
+                    </label>
+                </div>
+            </div>
+             <div>
+                <label class="block text-sm font-medium text-gray-700">Error Logging</label>
+                <div class="mt-2 p-4 bg-white/50 rounded-lg">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="error_logging_enabled" value="1" 
+                               class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
+                               <?php if (!empty($app_config['error_logging_enabled']) && $app_config['error_logging_enabled'] == '1') echo 'checked'; ?>>
+                        <span class="ml-3 text-sm text-gray-700">Enable Error Display (For debugging only. Disable on a live server.)</span>
+                    </label>
+                </div>
+            </div>
+             <div>
+                <label class="block text-sm font-medium text-gray-700">Database Backup</label>
+                <div class="mt-2">
+                    <a href="../backup.php" class="inline-block px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-sm hover:bg-green-700 transition-colors">
+                        Download Database Backup
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: System Reset Section (Only for Super Admins) -->
+    <?php if ($_SESSION['user_role_id'] == 1): ?>
+    <div class="mt-8 pt-6 border-t border-red-300/50">
+        <h3 class="text-lg font-semibold text-red-600">Danger Zone</h3>
+        <div class="mt-4 p-4 bg-red-50/80 rounded-lg flex items-start justify-between">
+            <div>
+                <p class="font-semibold">Reset Application Data</p>
+                <p class="text-sm text-red-700">This will permanently delete all transactional data (sales, customers, products, etc.) and all users except for Super Admins. This action cannot be undone.</p>
+            </div>
+            <form id="reset-form" action="reset_app.php" method="POST" class="ml-4">
+                <input type="hidden" name="confirm_reset" value="true">
+                <button type="button" id="reset-button" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-colors whitespace-nowrap">
+                    Reset Application
+                </button>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resetButton = document.getElementById('reset-button');
+    if (resetButton) {
+        resetButton.addEventListener('click', function() {
+            const firstConfirm = confirm("DANGER: You are about to delete ALL transactional data. This action is irreversible. Are you absolutely sure you want to continue?");
+            if (firstConfirm) {
+                const secondConfirm = prompt("To confirm this action, please type 'RESET' in the box below.");
+                if (secondConfirm === 'RESET') {
+                    document.getElementById('reset-form').submit();
+                } else {
+                    alert('The reset was cancelled. You did not type "RESET" correctly.');
+                }
+            }
+        });
+    }
+});
+</script>
 
 <?php
 require_once __DIR__ . '/../templates/footer.php';

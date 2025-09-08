@@ -133,19 +133,6 @@ $page_title = "Dashboard - " . ($app_config['company_name'] ?? 'BizManager');
         <h3 class="text-md font-semibold text-gray-800">POS</h3>
     </a>
     <?php endif; ?>
-
-
-    <?php // --- PERMISSION CHECK for Communication ---
-    if (check_permission('Communication', 'view')): ?>
-    <a href="communication/" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
-        <div class="p-4 bg-rose-100/50 rounded-full mb-4 backdrop-blur-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-        </div>
-        <h3 class="text-md font-semibold text-gray-800">Communication</h3>
-    </a>
-    <?php endif; ?>
     
     <?php // --- PERMISSION CHECK for Settings ---
     if (check_permission('Settings', 'view')): ?>
