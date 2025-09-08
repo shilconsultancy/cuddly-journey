@@ -41,20 +41,20 @@ $timezones = DateTimeZone::listIdentifiers(DateTimeZone::ALL);
 $message = '';
 $message_type = '';
 
-// Check for a success message from the redirect
+// Check for a success/error message from redirects
 if (isset($_GET['success'])) {
-    if ($_GET['success'] == 1) {
-        $message = "Configuration updated successfully!";
-        $message_type = 'success';
-    } elseif ($_GET['success'] == 'reset') {
-        $message = "Application data has been successfully reset!";
-        $message_type = 'success';
-    }
+    $message = "Configuration updated successfully!";
+    $message_type = 'success';
 }
 if (isset($_GET['error'])) {
-    $message = "An error occurred: " . htmlspecialchars($_GET['error']);
+    if ($_GET['error'] === 'reset_failed') {
+        $message = "System reset failed. Please ensure you typed 'RESET' correctly.";
+    } else {
+        $message = htmlspecialchars($_GET['error']);
+    }
     $message_type = 'error';
 }
+
 ?>
 
 <title><?php echo htmlspecialchars($page_title); ?></title>
@@ -143,6 +143,43 @@ if (isset($_GET['error'])) {
             </div>
         </div>
 
+        <!-- System Admin Section -->
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-300/50 pb-2 mb-4">System Administration</h3>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Maintenance Mode</label>
+                    <div class="mt-2 p-4 bg-white/50 rounded-lg">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="maintenance_mode" value="1" 
+                                   class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
+                                   <?php if (!empty($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1') echo 'checked'; ?>>
+                            <span class="ml-3 text-sm text-gray-700">Enable Maintenance Mode (Only Super Admins can log in)</span>
+                        </label>
+                    </div>
+                </div>
+                 <div>
+                    <label class="block text-sm font-medium text-gray-700">Error Logging</label>
+                    <div class="mt-2 p-4 bg-white/50 rounded-lg">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="error_logging_enabled" value="1" 
+                                   class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
+                                   <?php if (!empty($app_config['error_logging_enabled']) && $app_config['error_logging_enabled'] == '1') echo 'checked'; ?>>
+                            <span class="ml-3 text-sm text-gray-700">Enable Error Display (For debugging only. Disable on a live server.)</span>
+                        </label>
+                    </div>
+                </div>
+                 <div>
+                    <label class="block text-sm font-medium text-gray-700">Database Backup</label>
+                    <div class="mt-2">
+                        <a href="../backup.php" class="inline-block px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-sm hover:bg-green-700 transition-colors">
+                            Download Database Backup
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Form Actions -->
         <div class="flex justify-end pt-8 border-t border-gray-200/50">
             <button type="submit" name="save_settings" class="inline-flex justify-center py-2 px-6 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
@@ -151,58 +188,18 @@ if (isset($_GET['error'])) {
         </div>
     </form>
 
-    <!-- System Administration Section -->
-    <div class="mt-8">
-        <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-300/50 pb-2 mb-4">System Administration</h3>
-        <div class="space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Maintenance Mode</label>
-                <div class="mt-2 p-4 bg-white/50 rounded-lg">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="maintenance_mode" value="1" 
-                               class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
-                               <?php if (!empty($app_config['maintenance_mode']) && $app_config['maintenance_mode'] == '1') echo 'checked'; ?>>
-                        <span class="ml-3 text-sm text-gray-700">Enable Maintenance Mode (Only Super Admins can log in)</span>
-                    </label>
-                </div>
-            </div>
-             <div>
-                <label class="block text-sm font-medium text-gray-700">Error Logging</label>
-                <div class="mt-2 p-4 bg-white/50 rounded-lg">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="error_logging_enabled" value="1" 
-                               class="rounded h-4 w-4 text-red-600 focus:ring-red-500"
-                               <?php if (!empty($app_config['error_logging_enabled']) && $app_config['error_logging_enabled'] == '1') echo 'checked'; ?>>
-                        <span class="ml-3 text-sm text-gray-700">Enable Error Display (For debugging only. Disable on a live server.)</span>
-                    </label>
-                </div>
-            </div>
-             <div>
-                <label class="block text-sm font-medium text-gray-700">Database Backup</label>
-                <div class="mt-2">
-                    <a href="../backup.php" class="inline-block px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-sm hover:bg-green-700 transition-colors">
-                        Download Database Backup
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- NEW: System Reset Section (Only for Super Admins) -->
-    <?php if ($_SESSION['user_role_id'] == 1): ?>
-    <div class="mt-8 pt-6 border-t border-red-300/50">
+    <!-- Danger Zone: System Reset -->
+    <?php if ($_SESSION['user_role_id'] == 1): // ONLY show this to Super Admins ?>
+    <div class="mt-8 pt-6 border-t border-red-300">
         <h3 class="text-lg font-semibold text-red-600">Danger Zone</h3>
-        <div class="mt-4 p-4 bg-red-50/80 rounded-lg flex items-start justify-between">
+        <div class="mt-4 p-4 bg-red-50/80 border border-red-200/80 rounded-lg flex justify-between items-center">
             <div>
-                <p class="font-semibold">Reset Application Data</p>
-                <p class="text-sm text-red-700">This will permanently delete all transactional data (sales, customers, products, etc.) and all users except for Super Admins. This action cannot be undone.</p>
+                <p class="font-semibold">Reset Application</p>
+                <p class="text-sm text-red-700">This will permanently delete ALL transactional data (orders, customers, products, etc.) and all users except for Super Admins. This action cannot be undone.</p>
             </div>
-            <form id="reset-form" action="reset_app.php" method="POST" class="ml-4">
-                <input type="hidden" name="confirm_reset" value="true">
-                <button type="button" id="reset-button" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-colors whitespace-nowrap">
-                    Reset Application
-                </button>
-            </form>
+            <button id="reset-app-btn" class="bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:bg-red-700">
+                Reset Application
+            </button>
         </div>
     </div>
     <?php endif; ?>
@@ -211,17 +208,26 @@ if (isset($_GET['error'])) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const resetButton = document.getElementById('reset-button');
+    const resetButton = document.getElementById('reset-app-btn');
     if (resetButton) {
         resetButton.addEventListener('click', function() {
-            const firstConfirm = confirm("DANGER: You are about to delete ALL transactional data. This action is irreversible. Are you absolutely sure you want to continue?");
-            if (firstConfirm) {
-                const secondConfirm = prompt("To confirm this action, please type 'RESET' in the box below.");
-                if (secondConfirm === 'RESET') {
-                    document.getElementById('reset-form').submit();
-                } else {
-                    alert('The reset was cancelled. You did not type "RESET" correctly.');
-                }
+            const confirmation = prompt("This is a destructive action. To confirm, please type 'RESET' in the box below.");
+            if (confirmation === 'RESET') {
+                // Create a form dynamically to submit the request
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'reset_app.php';
+
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'confirm_reset';
+                input.value = 'RESET';
+
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert('Reset cancelled. You did not type "RESET".');
             }
         });
     }
