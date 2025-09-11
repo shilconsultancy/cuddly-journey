@@ -12,19 +12,26 @@ require __DIR__ . '/lib/PHPMailer/SMTP.php';
 
 /**
  * Checks if the currently logged-in user has a specific permission.
+ * This function now checks for custom user permissions first, then falls back to role-based permissions.
  *
  * @param string $module_name The name of the module (e.g., 'Sales', 'Users').
  * @param string $action The action to check (e.g., 'view', 'create', 'edit', 'delete').
  * @return bool True if the user has permission, false otherwise.
  */
 function check_permission($module_name, $action) {
-    // Super Admins (role_id 1) always have permission.
+    // Super Admins (role_id 1) always have all permissions.
     if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] == 1) {
         return true;
     }
 
-    // Check if the permission is set in the session array.
     $permission_key = 'can_' . $action;
+
+    // 1. Check for a specific user override first.
+    if (isset($_SESSION['custom_permissions'][$module_name][$permission_key])) {
+        return $_SESSION['custom_permissions'][$module_name][$permission_key] == 1;
+    }
+
+    // 2. If no user-specific override, fall back to the role's default permissions.
     if (isset($_SESSION['permissions'][$module_name][$permission_key]) && $_SESSION['permissions'][$module_name][$permission_key] == 1) {
         return true;
     }

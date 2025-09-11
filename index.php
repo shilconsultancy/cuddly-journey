@@ -37,8 +37,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['user_role_id'] = $user['role_id'];
                 $_SESSION['user_profile_image'] = $user['profile_image_url'];
                 $_SESSION['location_id'] = $user['location_id'];
-                $_SESSION['data_scope'] = $user['data_scope']; // Add data_scope to session
+                $_SESSION['data_scope'] = $user['data_scope'];
 
+                // Fetch ROLE-BASED permissions
                 $_SESSION['permissions'] = [];
                 $perm_stmt = $conn->prepare("
                     SELECT m.module_name, rp.can_view, rp.can_create, rp.can_edit, rp.can_delete
@@ -58,6 +59,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     ];
                 }
                 $perm_stmt->close();
+
+                // --- NEW: Fetch CUSTOM USER permissions ---
+                $_SESSION['custom_permissions'] = [];
+                $custom_perm_stmt = $conn->prepare("
+                    SELECT m.module_name, up.can_view, up.can_create, up.can_edit, up.can_delete
+                    FROM scs_user_permissions up
+                    JOIN scs_modules m ON up.module_id = m.id
+                    WHERE up.user_id = ?
+                ");
+                $custom_perm_stmt->bind_param("i", $user['id']);
+                $custom_perm_stmt->execute();
+                $custom_perm_result = $custom_perm_stmt->get_result();
+                while ($perm = $custom_perm_result->fetch_assoc()) {
+                    $_SESSION['custom_permissions'][$perm['module_name']] = [
+                        'can_view' => $perm['can_view'],
+                        'can_create' => $perm['can_create'],
+                        'can_edit' => $perm['can_edit'],
+                        'can_delete' => $perm['can_delete']
+                    ];
+                }
+                $custom_perm_stmt->close();
 
                 header("Location: dashboard.php");
                 exit();
@@ -140,8 +162,10 @@ $conn->close();
         </div>
         
         <div class="mt-4 p-4 bg-yellow-100/80 border border-yellow-200/80 text-yellow-800 text-sm rounded-lg text-center">
-            <p><strong class="font-semibold">For Development:</strong></p>
-            <p>Email: <span class="font-mono">admin@company.com</span> | Password: <span class="font-mono">admin</span></p>
+            <p><strong class="font-semibold">Demo Admin:</strong></p>
+            <p>Email: <span class="font-mono">shilconsultancy@gmail.com</span> | Password: <span class="font-mono">admin</span></p>
+            <p class="mt-2"><strong class="font-semibold">Demo Sales:</strong></p>
+            <p>Email: <span class="font-mono">rahim.ahmed@example.com</span> | Password: <span class="font-mono">password123</span></p>
         </div>
     </div>
 

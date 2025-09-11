@@ -83,6 +83,17 @@ $page_title = "Human Resources - BizManager";
         <h3 class="text-md font-semibold text-gray-800">Appointment Letters</h3>
         <p class="text-xs text-gray-500 mt-1">Generate official offer letters.</p>
     </a>
+
+    <a href="salary_certificate.php" class="app-card glass-card flex flex-col items-center justify-center p-6 rounded-xl text-center hover:bg-white/50">
+        <div class="p-4 bg-yellow-100/50 rounded-full mb-4 backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+        </div>
+        <h3 class="text-md font-semibold text-gray-800">Salary Certificates</h3>
+        <p class="text-xs text-gray-500 mt-1">Generate official salary statements.</p>
+    </a>
+
 </div>
 
 <?php
