@@ -1,40 +1,46 @@
 <?php
 // users/add-user.php
 
-// Go up one level to include the global header.
 require_once __DIR__ . '/../templates/header.php';
 
-$page_title = "Add User - BizManager";
+$page_title = "Add New Employee - BizManager";
 
-// --- SECURITY CHECK ---
 if (!check_permission('Users', 'create')) {
     die('<div class="glass-card p-8 text-center">You do not have permission to create new users.</div>');
 }
 
-
-// Initialize variables
+// Initialize variables for all form fields
 $message = '';
 $message_type = '';
-$full_name = '';
-$email = '';
-$selected_role = '';
-$selected_location = '';
+$full_name = ''; $email = ''; $selected_role = ''; $selected_location = '';
 $selected_data_scope = 'Local'; // Default to Local for security
+$job_title = ''; $department = ''; $hire_date = date('Y-m-d');
+$salary = ''; $address = ''; $emergency_contact_name = ''; $emergency_contact_phone = '';
 
-// --- DATA FETCHING for the page ---
-// Fetch all roles for the dropdown
+// Data fetching for dropdowns
 $roles_result = $conn->query("SELECT id, role_name FROM scs_roles ORDER BY role_name ASC");
+$locations_result = $conn->query("SELECT id, location_name FROM scs_locations ORDER BY location_name ASC");
 
 // --- FORM PROCESSING ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Retrieve and sanitize form data
+    // --- Retrieve All Form Data ---
+    // Account Details
     $full_name = trim($_POST['full-name']);
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm-password'];
     $role_id = $_POST['role'];
     $location_id = !empty($_POST['location']) ? $_POST['location'] : NULL;
-    $data_scope = $_POST['data_scope']; // New data scope field
+    $data_scope = $_POST['data_scope'];
+
+    // HR Details
+    $job_title = trim($_POST['job_title']);
+    $department = trim($_POST['department']);
+    $hire_date = !empty($_POST['hire_date']) ? $_POST['hire_date'] : NULL;
+    $salary = !empty($_POST['salary']) ? (float)$_POST['salary'] : NULL;
+    $address = trim($_POST['address']);
+    $emergency_contact_name = trim($_POST['emergency_contact_name']);
+    $emergency_contact_phone = trim($_POST['emergency_contact_phone']);
 
     // Keep selected values on POST
     $selected_role = $role_id;
@@ -43,13 +49,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // --- Validation ---
     if (empty($full_name) || empty($email) || empty($password) || empty($role_id)) {
-        $message = "Please fill in all required fields.";
+        $message = "Please fill in all required account fields.";
         $message_type = 'error';
     } elseif ($password !== $confirm_password) {
         $message = "Passwords do not match.";
         $message_type = 'error';
     } else {
-        // --- FIX: DUPLICATE EMAIL CHECK ---
         $stmt_check = $conn->prepare("SELECT id FROM scs_users WHERE email = ?");
         $stmt_check->bind_param("s", $email);
         $stmt_check->execute();
@@ -59,105 +64,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $message = "An account with this email already exists.";
             $message_type = 'error';
         } else {
-            // --- Handle Image Upload ---
-            $profile_image_url = NULL;
-            $target_dir = __DIR__ . "/../uploads/";
+            // --- Database transaction starts here ---
+            $conn->begin_transaction();
+            try {
+                // 1. Insert into scs_users table
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $stmt_user = $conn->prepare("INSERT INTO scs_users (full_name, email, password, role_id, location_id, data_scope) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt_user->bind_param("sssis", $full_name, $email, $hashed_password, $role_id, $location_id, $data_scope);
+                $stmt_user->execute();
+                $new_user_id = $conn->insert_id;
 
-            if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] != UPLOAD_ERR_NO_FILE) {
-                if ($_FILES['profile_image']['error'] !== UPLOAD_ERR_OK) {
-                    $message = "Upload Error Code: " . $_FILES['profile_image']['error'];
-                    $message_type = 'error';
-                }
-                elseif (!is_dir($target_dir) || !is_writable($target_dir)) {
-                    $message = "Upload directory does not exist or is not writable. Please check permissions.";
-                    $message_type = 'error';
-                }
-                else {
-                    $image_file_type = strtolower(pathinfo($_FILES["profile_image"]["name"], PATHINFO_EXTENSION));
-                    $unique_filename = uniqid('user_', true) . '.' . $image_file_type;
-                    $target_file = $target_dir . $unique_filename;
-                    
-                    $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-                    if (in_array($image_file_type, $allowed_types) && $_FILES["profile_image"]["size"] <= 5000000) { // 5MB limit
-                        if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_file)) {
-                            $profile_image_url = 'uploads/' . $unique_filename;
-                        } else {
-                            $message = "Sorry, there was a server error moving the uploaded file.";
-                            $message_type = 'error';
-                        }
-                    } else {
-                        $message = "Sorry, only JPG, JPEG, PNG & GIF files are allowed, and file size must be less than 5MB.";
-                        $message_type = 'error';
-                    }
-                }
-            }
+                // 2. Insert into scs_employee_details table
+                $stmt_hr = $conn->prepare("INSERT INTO scs_employee_details (user_id, job_title, department, hire_date, salary, address, emergency_contact_name, emergency_contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt_hr->bind_param("isssdsss", $new_user_id, $job_title, $department, $hire_date, $salary, $address, $emergency_contact_name, $emergency_contact_phone);
+                $stmt_hr->execute();
 
-            // Proceed only if there was no upload error
-            if ($message_type !== 'error') {
-                // --- Use a transaction for data integrity ---
-                $conn->begin_transaction();
-                try {
-                    // 1. Insert the user
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt_user = $conn->prepare("INSERT INTO scs_users (full_name, email, password, role_id, location_id, data_scope, profile_image_url) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $stmt_user->bind_param("sssisss", $full_name, $email, $hashed_password, $role_id, $location_id, $data_scope, $profile_image_url);
-                    $stmt_user->execute();
+                // 3. Generate and Update Company ID
+                $company_id = "SBM" . date('Y') . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
+                $stmt_update_id = $conn->prepare("UPDATE scs_users SET company_id = ? WHERE id = ?");
+                $stmt_update_id->bind_param("si", $company_id, $new_user_id);
+                $stmt_update_id->execute();
 
-                    $new_user_id = $conn->insert_id;
+                log_activity('USER_CREATED', "Created new employee: " . htmlspecialchars($full_name) . " (ID: " . $new_user_id . ")", $conn);
+                
+                $conn->commit();
+                header("Location: ../hr/employees.php?success=created");
+                exit();
 
-                    // 2. Generate and Update Professional Company ID
-                    $current_year = date('Y');
-                    $stmt_count = $conn->prepare("SELECT COUNT(id) as year_count FROM scs_users WHERE YEAR(created_at) = ?");
-                    $stmt_count->bind_param("s", $current_year);
-                    $stmt_count->execute();
-                    $result_count = $stmt_count->get_result();
-                    $user_count_this_year = $result_count->fetch_assoc()['year_count'];
-                    
-                    $sequence_number = str_pad($user_count_this_year, 4, '0', STR_PAD_LEFT);
-                    
-                    $company_id = "SBM" . $current_year . $sequence_number;
-                    
-                    $stmt_update_id = $conn->prepare("UPDATE scs_users SET company_id = ? WHERE id = ?");
-                    $stmt_update_id->bind_param("si", $company_id, $new_user_id);
-                    $stmt_update_id->execute();
-                    $stmt_count->close();
-                    $stmt_update_id->close();
-                    
-                    // 3. Log this activity
-                    $log_description = "Created a new user: " . htmlspecialchars($full_name) . " (ID: " . $new_user_id . ", Company ID: " . $company_id . ")";
-                    log_activity('USER_CREATED', $log_description, $conn);
-
-                    // 4. Send Welcome Email
-                    $email_subject = "Welcome to " . $app_config['company_name'];
-                    $email_body = "
-                        <h1>Welcome Aboard!</h1>
-                        <p>Hello " . htmlspecialchars($full_name) . ",</p>
-                        <p>An account has been created for you in our system. Here are your login details:</p>
-                        <ul>
-                            <li><strong>Email:</strong> " . htmlspecialchars($email) . "</li>
-                            <li><strong>Password:</strong> " . htmlspecialchars($password) . "</li>
-                            <li><strong>Company ID:</strong> " . htmlspecialchars($company_id) . "</li>
-                        </ul>
-                        <p>You can log in at: <a href='" . htmlspecialchars($app_config['company_website']) . "'>" . htmlspecialchars($app_config['company_website']) . "</a></p>
-                        <p>Thank you,<br>The " . htmlspecialchars($app_config['company_name']) . " Team</p>
-                    ";
-                    
-                    send_email($email, $email_subject, $email_body, $app_config);
-
-                    $conn->commit();
-                    $message = "User created successfully! New Company ID: " . $company_id;
-                    $message_type = 'success';
-                    
-                    $full_name = $email = $selected_role = $selected_location = '';
-                    $selected_data_scope = 'Local';
-
-
-                } catch (mysqli_sql_exception $exception) {
-                    $conn->rollback();
-                    $message = "Error creating user: " . $exception->getMessage();
-                    $message_type = 'error';
-                }
-                $stmt_user->close();
+            } catch (Exception $e) {
+                $conn->rollback();
+                $message = "Error creating user: " . $e->getMessage();
+                $message_type = 'error';
             }
         }
         $stmt_check->close();
@@ -168,9 +105,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <title><?php echo htmlspecialchars($page_title); ?></title>
 
 <div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-semibold text-gray-800">Create New User</h2>
-    <a href="index.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
-        &larr; Back to User List
+    <h2 class="text-2xl font-semibold text-gray-800">Create New Employee</h2>
+    <a href="../hr/employees.php" class="px-4 py-2 bg-white/80 text-gray-700 rounded-lg shadow-sm hover:bg-white transition-colors">
+        &larr; Back to Employee List
     </a>
 </div>
 
@@ -182,96 +119,105 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
     <?php endif; ?>
 
-    <form action="add-user.php" method="POST" enctype="multipart/form-data" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label for="full-name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                <input type="text" name="full-name" id="full-name" value="<?php echo htmlspecialchars($full_name); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
+    <form action="add-user.php" method="POST" enctype="multipart/form-data" class="space-y-8">
+        <!-- Account Details Section -->
+        <fieldset>
+            <legend class="text-lg font-semibold text-gray-800">Account Details</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                    <label for="full-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                    <input type="text" name="full-name" id="full-name" value="<?php echo htmlspecialchars($full_name); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                    <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($email); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" name="password" id="password" class="form-input mt-1 block w-full rounded-md p-3" required>
+                </div>
+                <div>
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input type="password" name="confirm-password" id="confirm-password" class="form-input mt-1 block w-full rounded-md p-3" required>
+                </div>
             </div>
-            <div>
-                <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($email); ?>" class="form-input mt-1 block w-full rounded-md p-3" required>
-            </div>
-        </div>
+        </fieldset>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" name="password" id="password" class="form-input mt-1 block w-full rounded-md p-3" required>
+        <!-- Role & Location Section -->
+        <fieldset>
+            <legend class="text-lg font-semibold text-gray-800">Role & Location</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                    <label for="role" class="block text-sm font-medium text-gray-700">Primary Role</label>
+                    <select id="role" name="role" class="form-input mt-1 block w-full p-3 rounded-md" required>
+                        <option value="">Select a role</option>
+                        <?php mysqli_data_seek($roles_result, 0); while($role = $roles_result->fetch_assoc()): ?>
+                            <option value="<?php echo $role['id']; ?>" <?php if ($role['id'] == $selected_role) echo 'selected'; ?>>
+                                <?php echo htmlspecialchars($role['role_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                <div>
+                    <label for="location" class="block text-sm font-medium text-gray-700">Assigned Location</label>
+                    <select id="location" name="location" class="form-input mt-1 block w-full p-3 rounded-md">
+                        <option value="">None</option>
+                        <?php mysqli_data_seek($locations_result, 0); while($row = $locations_result->fetch_assoc()): ?>
+                            <option value="<?php echo $row['id']; ?>" <?php if ($row['id'] == $selected_location) echo 'selected'; ?>>
+                                <?php echo htmlspecialchars($row['location_name']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                 <div>
+                    <label for="data_scope" class="block text-sm font-medium text-gray-700">Data Access Scope</label>
+                    <select id="data_scope" name="data_scope" class="form-input mt-1 block w-full p-3 rounded-md" required>
+                        <option value="Local" <?php if ($selected_data_scope == 'Local') echo 'selected'; ?>>Local</option>
+                        <option value="Global" <?php if ($selected_data_scope == 'Global') echo 'selected'; ?>>Global</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
-                <input type="password" name="confirm-password" id="confirm-password" class="form-input mt-1 block w-full rounded-md p-3" required>
-            </div>
-        </div>
-        <label class="flex items-center">
-            <input type="checkbox" onchange="togglePasswordVisibility(this)" class="rounded h-4 w-4 text-indigo-600">
-            <span class="ml-2 text-sm text-gray-600">Show Password</span>
-        </label>
-
-        <div>
-            <label for="profile_image" class="block text-sm font-medium text-gray-700">Profile Image</label>
-            <input type="file" name="profile_image" id="profile_image" class="form-input mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-        </div>
-
-        <div class="border-t border-gray-200/50 pt-6"></div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label for="role" class="block text-sm font-medium text-gray-700">Primary Role</label>
-                <select id="role" name="role" class="form-input mt-1 block w-full pl-3 pr-10 py-3 rounded-md" required>
-                    <option value="">Select a role</option>
-                    <?php while($role = $roles_result->fetch_assoc()): ?>
-                        <option value="<?php echo $role['id']; ?>" <?php if ($role['id'] == $selected_role) echo 'selected'; ?>>
-                            <?php echo htmlspecialchars($role['role_name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
-            <div>
-                <label for="location" class="block text-sm font-medium text-gray-700">Assigned Location (Optional)</label>
-                <select id="location" name="location" class="form-input mt-1 block w-full pl-3 pr-10 py-3 rounded-md">
-                    <option value="">Select a location</option>
-                    <?php 
-                    $locations_result = $conn->query("SELECT id, location_name FROM scs_locations ORDER BY location_name ASC");
-                    while($row = $locations_result->fetch_assoc()): ?>
-                        <option value="<?php echo $row['id']; ?>" <?php if ($row['id'] == $selected_location) echo 'selected'; ?>>
-                            <?php echo htmlspecialchars($row['location_name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
-        </div>
+        </fieldset>
         
-        <div>
-            <label for="data_scope" class="block text-sm font-medium text-gray-700">Data Access Scope</label>
-            <select id="data_scope" name="data_scope" class="form-input mt-1 block w-full pl-3 pr-10 py-3 rounded-md" required>
-                <option value="Local" <?php if ($selected_data_scope == 'Local') echo 'selected'; ?>>Local (Can only see data from their assigned location)</option>
-                <option value="Global" <?php if ($selected_data_scope == 'Global') echo 'selected'; ?>>Global (Can see data from all locations)</option>
-            </select>
-        </div>
+        <!-- HR Details Section -->
+        <fieldset>
+            <legend class="text-lg font-semibold text-gray-800">HR & Employment Details</legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                    <label for="job_title" class="block text-sm font-medium text-gray-700">Job Title</label>
+                    <input type="text" name="job_title" id="job_title" value="<?php echo htmlspecialchars($job_title); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+                <div>
+                    <label for="department" class="block text-sm font-medium text-gray-700">Department</label>
+                    <input type="text" name="department" id="department" value="<?php echo htmlspecialchars($department); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+                <div>
+                    <label for="hire_date" class="block text-sm font-medium text-gray-700">Hire Date</label>
+                    <input type="date" name="hire_date" id="hire_date" value="<?php echo htmlspecialchars($hire_date); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+                <div>
+                    <label for="salary" class="block text-sm font-medium text-gray-700">Salary (<?php echo $app_config['currency_symbol']; ?> per month)</label>
+                    <input type="number" step="0.01" name="salary" id="salary" value="<?php echo htmlspecialchars($salary); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="address" class="block text-sm font-medium text-gray-700">Employee Address</label>
+                    <textarea name="address" id="address" rows="3" class="form-input mt-1 block w-full p-2"><?php echo htmlspecialchars($address); ?></textarea>
+                </div>
+                 <div>
+                    <label for="emergency_contact_name" class="block text-sm font-medium text-gray-700">Emergency Contact Name</label>
+                    <input type="text" name="emergency_contact_name" id="emergency_contact_name" value="<?php echo htmlspecialchars($emergency_contact_name); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+                <div>
+                    <label for="emergency_contact_phone" class="block text-sm font-medium text-gray-700">Emergency Contact Phone</label>
+                    <input type="text" name="emergency_contact_phone" id="emergency_contact_phone" value="<?php echo htmlspecialchars($emergency_contact_phone); ?>" class="form-input mt-1 block w-full p-2">
+                </div>
+            </div>
+        </fieldset>
 
-
-        <div class="flex justify-end pt-6 border-t border-gray-200/50">
-            <button type="button" onclick="window.location.href='index.php'" class="bg-white/80 py-2 px-4 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50/50">
-                Cancel
-            </button>
-            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                Create User
+        <div class="flex justify-end pt-4 border-t border-gray-200/50">
+            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-6 rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                Create Employee
             </button>
         </div>
     </form>
 </div>
-
-<script>
-    function togglePasswordVisibility(checkbox) {
-        const passwordInput = document.getElementById('password');
-        const confirmPasswordInput = document.getElementById('confirm-password');
-        passwordInput.type = checkbox.checked ? 'text' : 'password';
-        confirmPasswordInput.type = checkbox.checked ? 'text' : 'password';
-    }
-</script>
-
-<?php
-require_once __DIR__ . '/../templates/footer.php';
-?>
